@@ -62,7 +62,7 @@ def build_parser():
     ps("--emb_dropout", dest="emb_dropout", type=float, metavar='<float>',
        default=0.8, help="The dropout probability.")
     ps("--pretrained", dest="pretrained", type=int, metavar='<int>',
-       default=0, help="Whether to use pretrained embeddings or not")
+       default=1, help="Whether to use pretrained embeddings or not")
     ps("--epochs", dest="epochs", type=int, metavar='<int>',
        default=50, help="Number of epochs (default=50)")
     ps('--gpu', dest='gpu', type=int, metavar='<int>',

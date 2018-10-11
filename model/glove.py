@@ -89,6 +89,7 @@ def word_info(word='hello'):
 
 
 if __name__ == '__main__':
+    print(GLOVE_FILENAME)
     word_to_index, index_to_embedding = load_embedding_from_disks(GLOVE_FILENAME, with_indexes=True)
     emb = tf.get_variable('Embedding', shape=index_to_embedding.shape, dtype=tf.float64,
                           initializer=tf.zeros_initializer, trainable=False)

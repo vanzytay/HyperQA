@@ -25,9 +25,20 @@ import datetime
 import random
 
 import numpy as np
+
+from model.glove import load_embedding_from_disks
 from model.parser import build_parser
 from model.utilities import *
 from model.datautils import YahooQA
+
+
+def batchify(data, i, bsz, max_sample):
+    start = int(i * bsz)
+    end = int(i * bsz) + bsz
+    if max_sample < end:
+        end = max_sample
+    data = data[start:end]
+    return data
 
 
 class HyperQA:
@@ -57,13 +68,21 @@ class HyperQA:
             self.initializer = tf.contrib.layers.xavier_initializer()
 
         self.build_graph()
+        _config_proto = tf.ConfigProto(
+            allow_soft_placement=True,
+            intra_op_parallelism_threads=8)
+        self.sess = tf.Session(graph=self.graph, config=_config_proto)
+
+        with self.graph.as_default():
+            self.sess.run(tf.global_variables_initializer())
+
 
     def _get_pair_feed_dict(self, data, mode='training', lr=None):
-        # data = zip(*data)
 
         if lr is None:
             lr = self.args.learn_rate
 
+        # import pdb; pdb.set_trace()
         if mode == 'training':
             assert (np.min(data[1]) > 0)
             assert (np.min(data[3]) > 0)
@@ -137,7 +156,7 @@ class HyperQA:
         q2_output = self.build_glove(q2_embed, q2_len, q2_max)
 
         try:
-            self.max_norm = tf.reduce_max(tf.norm(q1_output, ord='euclidean', keep_dims=True, axis=1))
+            self.max_norm = tf.reduce_max(tf.norm(q1_output, ord='euclidean', keepdims=True, axis=1))
         except:
             self.max_norm = 0
 
@@ -155,6 +174,7 @@ class HyperQA:
 
         representation = output
         activation = None
+
 
         with tf.variable_scope('fl', reuse=reuse) as scope:
             last_dim = output.get_shape().as_list()[1]
@@ -332,16 +352,117 @@ class HyperQA:
                 self.merged_summary_op = tf.summary.merge_all(key=tf.GraphKeys.SUMMARIES)
                 self.predict_op = self.output_pos
 
+    def train(self, dataset: YahooQA) -> None:
+        """ Main training loop
+        """
+        # scores = []
+        # best_score = -1
+        # best_dev = -1
+        # best_epoch = -1
+        # counter = 0
+        # epoch_scores = {}
+        # self.eval_list = []
+
+        GLOVE_FILENAME = 'embeddings/glove.twitter.27B/glove.twitter.27B.25d.txt'
+        word_to_index, index_to_embedding = load_embedding_from_disks(GLOVE_FILENAME, with_indexes=True)
+        data = dataset.sample[dataset.Parts.train.name]
+
+
+        self.sess.run(self.embeddings_init, feed_dict={self.emb_placeholder: index_to_embedding})
+        # self.test_set = dataset.feed_data[dataset.Parts.test]
+        # self.dev_set = dataset.feed_data[dataset.Parts.dev]
+
+        print("Training {}".format(len(data)))
+        # self.sess.run(tf.assign(self.mdl.is_train, self.mdl.true))
+        for epoch in range(1, self.args.epochs + 1):
+            # all_att_dict = {}
+            # pos_val, neg_val = [], []
+            # t0 = time.clock()
+            # self.write_to_file("=====================================")
+            losses = []
+            # random.shuffle(data)
+            num_batches = int(len(data) / self.args.batch_size)
+            # norms = []
+            # all_acc = 0
+            for i in tqdm(range(0, num_batches + 1)):
+                batch = dict(
+                    batchify(
+                        list(data.items()),
+                        i,
+                        self.args.batch_size,
+                        max_sample=len(list(data.items()))
+                    )
+                )
+                if 0 == len(batch):
+                    continue
+                feed_dict = self.get_feed_dict(dataset.create_feed_data(batch, word_to_index, qmax=self.args.qmax, pos_max=self.args.amax, neg_max=self.args.amax).feed_data)
+                train_op = self.train_op
+                # run_options = tf.RunOptions(timeout_in_ms=10000)
+                _, loss = self.sess.run([train_op, self.cost], feed_dict)
+                # if ('TNET' in self.args.rnn_type):
+                #     # TransNet secondary review-loss
+                #     loss2 = self.sess.run([self.mdl.trans_loss], feed_dict)
+
+                # # For visualisation purposes only
+                # if (self.args.show_att == 1):
+                #     a1, a2 = self.sess.run([self.mdl.att1, self.mdl.att2], feed_dict)
+                #     show_att(a1)
+                # if (self.args.show_affinity == 1):
+                #     afm = self.sess.run([self.mdl.afm], feed_dict)
+                #     show_afm(afm)
+
+                # all_acc += (loss * len(batch))
+
+                # if (self.args.tensorboard):
+                #     self.train_writer.add_summary(summary, counter)
+                # counter += 1
+
+                losses.append(loss)
+                print(loss)
+
+            # t1 = time.clock()
+            # self.write_to_file("[{}] [Epoch {}] [{}] loss={} acc={}".format(
+            #     self.args.dataset, epoch, self.model_name,
+            #     np.mean(losses), all_acc / len(data)))
+            # self.write_to_file("GPU={} | | d={}".format(
+            #     self.args.gpu,
+            #     self.args.emb_size))
+
+            # if (epoch % self.args.eval == 0):
+            #     self.sess.run(tf.assign(self.mdl.is_train, self.mdl.false))
+            #     _, dev_preds = self.evaluate(self.dev_set,
+            #                                  self.args.batch_size, epoch, set_type='Dev')
+            #     self._show_metrics(epoch, self.eval_dev,
+            #                        self.show_metrics,
+            #                        name='Dev')
+            #     best_epoch1, cur_dev = self._select_test_by_dev(epoch,
+            #                                                     self.eval_dev,
+            #                                                     {},
+            #                                                     no_test=True,
+            #                                                     lower_is_better=True)
+            #     _, test_preds = self.evaluate(self.test_set,
+            #                                   self.args.batch_size, epoch, set_type='Test')
+            #     self._show_metrics(epoch, self.eval_test,
+            #                        self.show_metrics,
+            #                        name='Test')
+            #     stop, max_e, best_epoch = self._select_test_by_dev(
+            #         epoch,
+            #         self.eval_dev,
+            #         self.eval_test,
+            #         lower_is_better=True)
+            #     if (epoch - best_epoch > self.args.early_stop and self.args.early_stop > 0):
+            #         print("Ended at early stop")
+            #         sys.exit(0)
+
 
 if __name__ == '__main__':
-
     ds_path = '/Users/svetlin/workspace/q-and-a/YahooQA_Splits/data/'
     dataset = 'env.pkl'
     sample = 'sample.pkl'
 
-    hyper_qa = HyperQA(vocab_size=10000)
+    hyper_qa = HyperQA(vocab_size=1193515)
     yahoo_ds = YahooQA(ds_path)
-    yahoo_ds.load_dataset(dataset).create_sample(size=2).save_dataset(yahoo_ds.sample, sample).create_feed_data(yahoo_ds.sample).display()
-    # yahoo_ds.load_dataset(sample).create_feed_data(yahoo_ds.dataset)
-    feed_dict = hyper_qa.get_feed_dict(yahoo_ds.feed_data.get('train'))
-    print(feed_dict.keys())
+    # yahoo_ds.load_dataset(dataset).create_sample(size=20).save_dataset(yahoo_ds.sample, sample).create_feed_data(
+    #     yahoo_ds.sample).display()
+    yahoo_ds.load_dataset(dataset).create_sample(size=200000).save_dataset(yahoo_ds.sample, sample)
+    hyper_qa.train(yahoo_ds)
