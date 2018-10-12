@@ -3,3 +3,4 @@
 **/embeddings
 **/.DS_Store
 **/__pycache__
+**/*.swp

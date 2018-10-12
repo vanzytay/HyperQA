@@ -109,7 +109,7 @@ def hyperbolic_ball(x, y, neg=False, eps=1E-6):
     """ Poincare Distance Function.
     """
     z = x - y
-    z = tf.norm(z, ord='euclidean', keep_dims=True, axis=1)
+    z = tf.norm(z, ord='euclidean', keepdims=True, axis=1)
     z = tf.square(z)
     x_d = 1 - tf.square(tf.norm(x, ord='euclidean',
                                 keep_dims=True,

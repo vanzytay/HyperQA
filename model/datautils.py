@@ -10,31 +10,29 @@ class YahooQA:
         test = 2
         dev = 3
 
-    def __init__(self, path):
-        self.path = path
+    def __init__(self):
         self.dataset = dict()
-        self.sample = dict()
+        self.splits = dict()
         self.parts = list(self.Parts.__members__.keys())
         for part in self.parts:
-            self.sample[part] = dict()
+            self.splits[part] = dict()
         # self.feed_data = dict()
         self.feed_data = tuple()
 
-    def load_dataset(self, name):
-        file_path = os.path.join(self.path, name)
+    def load_dataset(self, file_path):
         self.dataset = pickle.load(open(file_path, 'rb'))
+        self.create_splits()
         return self
 
-    def save_dataset(self, dataset, name):
-        file_path = os.path.join(self.path, name)
+    def save_dataset(self, file_path):
         pickle.dump(dataset, open(file_path, 'wb'))
         return self
 
-    def create_sample(self, size=5):
+    def create_splits(self):
         for part in self.parts:
-            keys = list(self.dataset[part].keys())[:size]
+            keys = list(self.dataset[part].keys())
             for key in keys:
-                self.sample[part][key] = self.dataset[part][key]
+                self.splits[part][key] = self.dataset[part][key]
         return self
 
     def create_feed_data(self, dataset, word_to_index, qmax, pos_max, neg_max):

@@ -26,10 +26,10 @@ import random
 
 import numpy as np
 
-from model.glove import load_embedding_from_disks
-from model.parser import build_parser
-from model.utilities import *
-from model.datautils import YahooQA
+from glove import load_embedding_from_disks
+from parser import build_parser
+from utilities import *
+from datautils import YahooQA
 
 
 def batchify(data, i, bsz, max_sample):
@@ -57,6 +57,9 @@ class HyperQA:
         self.imap = {}
         self.inspect_op = []
         self.feat_prop = None
+
+        # GLOVE_FILENAME = '/code/model/embeddings/glove.twitter.27B.25d.txt'
+        self.word_to_index, self.index_to_embedding = load_embedding_from_disks(self.args.glove, with_indexes=True)
 
         if self.args.init_type == 'xavier':
             self.initializer = tf.contrib.layers.xavier_initializer()
@@ -363,12 +366,9 @@ class HyperQA:
         # epoch_scores = {}
         # self.eval_list = []
 
-        GLOVE_FILENAME = 'embeddings/glove.twitter.27B/glove.twitter.27B.25d.txt'
-        word_to_index, index_to_embedding = load_embedding_from_disks(GLOVE_FILENAME, with_indexes=True)
-        data = dataset.sample[dataset.Parts.train.name]
+        data = dataset.splits[dataset.Parts.train.name]
 
-
-        self.sess.run(self.embeddings_init, feed_dict={self.emb_placeholder: index_to_embedding})
+        self.sess.run(self.embeddings_init, feed_dict={self.emb_placeholder: self.index_to_embedding})
         # self.test_set = dataset.feed_data[dataset.Parts.test]
         # self.dev_set = dataset.feed_data[dataset.Parts.dev]
 
@@ -395,7 +395,7 @@ class HyperQA:
                 )
                 if 0 == len(batch):
                     continue
-                feed_dict = self.get_feed_dict(dataset.create_feed_data(batch, word_to_index, qmax=self.args.qmax, pos_max=self.args.amax, neg_max=self.args.amax).feed_data)
+                feed_dict = self.get_feed_dict(dataset.create_feed_data(batch, self.word_to_index, qmax=self.args.qmax, pos_max=self.args.amax, neg_max=self.args.amax).feed_data)
                 train_op = self.train_op
                 # run_options = tf.RunOptions(timeout_in_ms=10000)
                 _, loss = self.sess.run([train_op, self.cost], feed_dict)
@@ -456,13 +456,10 @@ class HyperQA:
 
 
 if __name__ == '__main__':
-    ds_path = '/Users/svetlin/workspace/q-and-a/YahooQA_Splits/data/'
-    dataset = 'env.pkl'
-    sample = 'sample.pkl'
+
+    args = build_parser().parse_args()
 
     hyper_qa = HyperQA(vocab_size=1193515)
-    yahoo_ds = YahooQA(ds_path)
-    # yahoo_ds.load_dataset(dataset).create_sample(size=20).save_dataset(yahoo_ds.sample, sample).create_feed_data(
-    #     yahoo_ds.sample).display()
-    yahoo_ds.load_dataset(dataset).create_sample(size=200000).save_dataset(yahoo_ds.sample, sample)
+    yahoo_ds = YahooQA()
+    yahoo_ds.load_dataset(args.dataset)
     hyper_qa.train(yahoo_ds)

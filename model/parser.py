@@ -21,7 +21,7 @@ def build_parser():
        default='', help='support ablation commands')
     ps("--comp_layer", dest="comp_layer", type=str, metavar='<str>',
        default='MUL_SUB', help="")
-    ps("--opt", dest="opt", type=str, metavar='<str>', default='Adam',
+    ps("--opt", dest="opt", type=str, metavar='<str>', default='Adagrad',
        help="Optimization algorithm)")
     ps("--emb_size", dest="emb_size", type=int, metavar='<int>',
        default=50, help="Embeddings dimension (default=50)")
@@ -120,11 +120,11 @@ def build_parser():
     ps('--all_dropout', action='store_true',
        default=False, help='to dropout the embedding layer or not')
     ps("--qmax", dest="qmax", type=int, metavar='<int>',
-       default=20, help="Max Length of Question (not used in rec)")
+       default=2000, help="Max Length of Question (not used in rec)")
     ps("--char_max", dest="char_max", type=int, metavar='<int>',
        default=8, help="Max length of characters")
     ps("--amax", dest="amax", type=int, metavar='<int>',
-       default=40, help="Max Length for Answer (not used in rec)")
+       default=2000, help="Max Length for Answer (not used in rec)")
     ps("--smax", dest="smax", type=int, metavar='<int>',
        default=30, help="Max Length of Sentences (per review)")
     ps("--dmax", dest="dmax", type=int, metavar='<int>',
@@ -187,4 +187,6 @@ def build_parser():
        default='logs', help='log directory')
     ps('--use_cudnn', dest='use_cudnn', type=int, default=0)
     ps('--use_cove', dest='use_cove', type=int, default=0)
+    ps('--glove', dest='glove', type=str)
+
     return parser
