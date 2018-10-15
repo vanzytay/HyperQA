@@ -422,17 +422,17 @@ class HyperQA:
 
             eval_set = self._get_eval_set(batch)
 
-            feed_dict = self.get_feed_dict(eval_set[:-1], mode='testing')
-            loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
-            predictions = np.array(predictions)
+            for k in range(1, len(eval_set), bsz):
 
-            for j in range(1, len(predictions), bsz):
-                preds = predictions[j-1:j-1+bsz]
-                pred_idx = j - 1 + np.argmin(preds)
+                batch = eval_set[k-1:k-1+bsz]
+                feed_dict = self.get_feed_dict(batch[:-1], mode='testing')
+                loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
+                preds = np.array(predictions)
+                pred_idx = np.argmin(preds)
 
-                question = eval_set[0][pred_idx]
-                predicted = eval_set[2][pred_idx]
-                actual = self._str_to_intlist(eval_set[-1][pred_idx])
+                question = batch[0][pred_idx]
+                predicted = batch[2][pred_idx]
+                actual = self._str_to_intlist(batch[-1][pred_idx])
                 if predicted == actual:
                     correct += 1
                 all += 1
@@ -470,7 +470,7 @@ class HyperQA:
                 result.append([
                     question, len(question), pos_answer, len(pos_answer), neg_answers[i], len(neg_answers[i]), correct
                 ])
-            result = list(zip(*result))
+        result = list(zip(*result))
         return result
 
     def _intlist_to_str(self, li, sep=' '):
