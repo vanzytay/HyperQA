@@ -3,29 +3,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import pickle
-
-import numpy as np
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import average_precision_score
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import precision_score, recall_score, f1_score
-import tensorflow as tf
-import gzip
-import json
-from tqdm import tqdm
-import random
 from collections import Counter
-import operator
-import timeit
-import time
-import datetime
-
-# from keras.utils import np_utils
-import random
-
+import math
+from collections import defaultdict
+from tqdm import tqdm
 import numpy as np
-
 from glove import load_embedding_from_disks
 from parser import build_parser
 from utilities import *
@@ -37,7 +19,7 @@ def batchify(data, i, bsz, max_sample):
     end = int(i * bsz) + bsz
     if max_sample < end:
         end = max_sample
-    data = data[start:end]
+    data = tuple(t[start:end] for t in data)
     return data
 
 
@@ -47,7 +29,7 @@ class HyperQA:
 
     """
 
-    def __init__(self, vocab_size, char_vocab=0, pos_vocab=0):
+    def __init__(self, dataset: YahooQA, vocab_size: int, char_vocab=0, pos_vocab=0):
         self.parser = build_parser()
         self.vocab_size = vocab_size
         self.char_vocab = char_vocab
@@ -58,8 +40,12 @@ class HyperQA:
         self.inspect_op = []
         self.feat_prop = None
 
-        # GLOVE_FILENAME = '/code/model/embeddings/glove.twitter.27B.25d.txt'
-        self.word_to_index, self.index_to_embedding = load_embedding_from_disks(self.args.glove, with_indexes=True)
+        self.train_set = dataset.splits[dataset.Parts.train.name]
+        self.test_set = dataset.splits[dataset.Parts.test.name]
+        self.dev_set = dataset.splits[dataset.Parts.dev.name]
+
+        self.word_to_index, self.index_to_embedding = dataset.word_to_index, dataset.index_to_embedding
+        self.index_to_word = {val: k for k, val in self.word_to_index.items()}
 
         if self.args.init_type == 'xavier':
             self.initializer = tf.contrib.layers.xavier_initializer()
@@ -79,13 +65,11 @@ class HyperQA:
         with self.graph.as_default():
             self.sess.run(tf.global_variables_initializer())
 
-
     def _get_pair_feed_dict(self, data, mode='training', lr=None):
 
         if lr is None:
             lr = self.args.learn_rate
 
-        # import pdb; pdb.set_trace()
         if mode == 'training':
             assert (np.min(data[1]) > 0)
             assert (np.min(data[3]) > 0)
@@ -177,7 +161,6 @@ class HyperQA:
 
         representation = output
         activation = None
-
 
         with tf.variable_scope('fl', reuse=reuse) as scope:
             last_dim = output.get_shape().as_list()[1]
@@ -272,8 +255,7 @@ class HyperQA:
             with tf.name_scope("train"):
                 with tf.name_scope("cost_function"):
                     # hinge loss
-                    self.hinge_loss = tf.maximum(0.0, (
-                            self.args.margin - self.output_pos + self.output_neg))
+                    self.hinge_loss = tf.maximum(0.0, (self.args.margin - self.output_pos + self.output_neg))
 
                     self.cost = tf.reduce_sum(self.hinge_loss)
 
@@ -355,7 +337,7 @@ class HyperQA:
                 self.merged_summary_op = tf.summary.merge_all(key=tf.GraphKeys.SUMMARIES)
                 self.predict_op = self.output_pos
 
-    def train(self, dataset: YahooQA) -> None:
+    def train(self):
         """ Main training loop
         """
         # scores = []
@@ -366,52 +348,23 @@ class HyperQA:
         # epoch_scores = {}
         # self.eval_list = []
 
-        data = dataset.splits[dataset.Parts.train.name]
-
         self.sess.run(self.embeddings_init, feed_dict={self.emb_placeholder: self.index_to_embedding})
-        # self.test_set = dataset.feed_data[dataset.Parts.test]
-        # self.dev_set = dataset.feed_data[dataset.Parts.dev]
 
-        print("Training {}".format(len(data)))
+        print("Training {}".format(len(self.train_set[0])))
         # self.sess.run(tf.assign(self.mdl.is_train, self.mdl.true))
         for epoch in range(1, self.args.epochs + 1):
-            # all_att_dict = {}
-            # pos_val, neg_val = [], []
-            # t0 = time.clock()
-            # self.write_to_file("=====================================")
             losses = []
             # random.shuffle(data)
-            num_batches = int(len(data) / self.args.batch_size)
-            # norms = []
-            # all_acc = 0
+            num_batches = int(len(self.train_set[0]) / self.args.batch_size)
+            # num_batches = 5
+            all_acc = 0
             for i in tqdm(range(0, num_batches + 1)):
-                batch = dict(
-                    batchify(
-                        list(data.items()),
-                        i,
-                        self.args.batch_size,
-                        max_sample=len(list(data.items()))
-                    )
-                )
-                if 0 == len(batch):
+                batch = batchify(self.train_set, i, self.args.batch_size, max_sample=len(self.train_set[0]))
+                if 0 == len(batch[0]):
                     continue
-                feed_dict = self.get_feed_dict(dataset.create_feed_data(batch, self.word_to_index, qmax=self.args.qmax, pos_max=self.args.amax, neg_max=self.args.amax).feed_data)
-                train_op = self.train_op
-                # run_options = tf.RunOptions(timeout_in_ms=10000)
-                _, loss = self.sess.run([train_op, self.cost], feed_dict)
-                # if ('TNET' in self.args.rnn_type):
-                #     # TransNet secondary review-loss
-                #     loss2 = self.sess.run([self.mdl.trans_loss], feed_dict)
-
-                # # For visualisation purposes only
-                # if (self.args.show_att == 1):
-                #     a1, a2 = self.sess.run([self.mdl.att1, self.mdl.att2], feed_dict)
-                #     show_att(a1)
-                # if (self.args.show_affinity == 1):
-                #     afm = self.sess.run([self.mdl.afm], feed_dict)
-                #     show_afm(afm)
-
-                # all_acc += (loss * len(batch))
+                feed_dict = self.get_feed_dict(batch)
+                _, loss = self.sess.run([self.train_op, self.cost], feed_dict)
+                all_acc += (loss * len(batch))
 
                 # if (self.args.tensorboard):
                 #     self.train_writer.add_summary(summary, counter)
@@ -423,23 +376,17 @@ class HyperQA:
             # t1 = time.clock()
             # self.write_to_file("[{}] [Epoch {}] [{}] loss={} acc={}".format(
             #     self.args.dataset, epoch, self.model_name,
-            #     np.mean(losses), all_acc / len(data)))
+            #     np.mean(losses), all_acc / len(self.train_set)))
             # self.write_to_file("GPU={} | | d={}".format(
             #     self.args.gpu,
             #     self.args.emb_size))
 
-            # if (epoch % self.args.eval == 0):
-            #     self.sess.run(tf.assign(self.mdl.is_train, self.mdl.false))
-            #     _, dev_preds = self.evaluate(self.dev_set,
-            #                                  self.args.batch_size, epoch, set_type='Dev')
-            #     self._show_metrics(epoch, self.eval_dev,
-            #                        self.show_metrics,
-            #                        name='Dev')
-            #     best_epoch1, cur_dev = self._select_test_by_dev(epoch,
-            #                                                     self.eval_dev,
-            #                                                     {},
-            #                                                     no_test=True,
-            #                                                     lower_is_better=True)
+            if epoch % self.args.eval == 0:
+                # self.sess.run(tf.assign(self.mdl.is_train, self.mdl.false))
+                _, dev_preds = self.evaluate(self.dev_set, self.args.batch_size, epoch, set_type='Dev')
+                # self._show_metrics(epoch, self.eval_dev, self.show_metrics, name='Dev')
+                # best_epoch1, cur_dev = self._select_test_by_dev(epoch, self.eval_dev, {}, no_test=True, lower_is_better=True)
+
             #     _, test_preds = self.evaluate(self.test_set,
             #                                   self.args.batch_size, epoch, set_type='Test')
             #     self._show_metrics(epoch, self.eval_test,
@@ -454,12 +401,88 @@ class HyperQA:
             #         print("Ended at early stop")
             #         sys.exit(0)
 
+    def evaluate(self, data, bsz, epoch, set_type=""):
+
+        def print_results(str, result):
+            print(str.ljust(20, ' ') + '  '.join(''.join(
+                filter(lambda w: w != '<user>', [self.index_to_word[w] for w in result])
+            ).split('9')))
+
+        acc = 0
+        correct = 0
+        all = 0
+        num_batches = int(len(data[0]) / bsz)
+        # num_batches = 5
+        all_preds = []
+        raw_preds = []
+        ff_feats = []
+        all_qout = []
+
+        # actual_labels = [x[2] for x in data]
+        for i in tqdm(range(num_batches + 1)):
+            batch = batchify(data, i, bsz, max_sample=len(data[0]))
+            if len(batch) == 0:
+                continue
+
+            eval_dict = self._get_eval_dict(batch)
+
+            for i, (k, val) in enumerate(eval_dict.items()):
+                feed_dict = self.get_feed_dict(val, mode='testing')
+                loss, preds = self.sess.run([self.cost, self.predict_op], feed_dict)
+                preds = np.array(preds)
+                pred_idx = np.argmin(preds)
+
+                # question = val[0][pred_idx]
+                predicted = val[2][pred_idx]
+                actual = self._str_to_intlist(k)
+                if predicted == actual:
+                    correct += 1
+                all += 1
+
+                # print_results('Question: ', question)
+                # print_results('Predicted: ', predicted)
+                # print_results('Actual: ', actual)
+        print('Epoch: {} Accuracy: {} Correct: {} All: {}'.format(epoch, correct/all, correct, all))
+
+        # acc_preds = [round(x) for x in all_preds]
+        # acc = accuracy_score(actual_labels, acc_preds)
+        # mse = mean_squared_error(actual_labels, all_preds)
+        # actual_labels = [int(x) for x in actual_labels]
+        # all_preds = [int(x) for x in all_preds]
+        # f1 = f1_score(actual_labels, all_preds, average='macro')
+        # mae = mean_absolute_error(actual_labels, all_preds)
+        # self._register_eval_score(epoch, set_type, 'MSE', mse)
+        # self._register_eval_score(epoch, set_type, 'MAE', mae)
+
+        # self._register_eval_score(epoch, set_type, 'ACC', acc)
+        # # self._register_eval_score(epoch, set_type, 'F1', f1)
+        # return mse, all_preds
+        return all_preds, all_preds
+
+    def _get_eval_dict(self, data) -> dict:
+        questions = data[0]
+        pos_answers = data[2]
+        neg_answers = data[4]
+        result = defaultdict(list)
+        for i, question in enumerate(questions):
+            key = self._intlist_to_str(pos_answers[i])
+            for pos_answer in pos_answers:
+                result[key].append([
+                    question, len(question), pos_answer, len(pos_answer), neg_answers[i], len(neg_answers[i])
+                ])
+            result[key] = list(zip(*result[key]))
+        return result
+
+    def _intlist_to_str(self, li, sep=' '):
+        return sep.join([str(w) for w in li])
+
+    def _str_to_intlist(self, str, sep=' '):
+        return [int(num) for num in str.split(sep)]
+
 
 if __name__ == '__main__':
-
     args = build_parser().parse_args()
-
-    hyper_qa = HyperQA(vocab_size=1193515)
-    yahoo_ds = YahooQA()
-    yahoo_ds.load_dataset(args.dataset)
-    hyper_qa.train(yahoo_ds)
+    word_to_index, index_to_embedding = load_embedding_from_disks(args.glove, with_indexes=True)
+    yahoo_ds = YahooQA(args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.amax)
+    hyper_qa = HyperQA(yahoo_ds, vocab_size=1193515)
+    hyper_qa.train()

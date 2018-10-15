@@ -112,10 +112,10 @@ def hyperbolic_ball(x, y, neg=False, eps=1E-6):
     z = tf.norm(z, ord='euclidean', keepdims=True, axis=1)
     z = tf.square(z)
     x_d = 1 - tf.square(tf.norm(x, ord='euclidean',
-                                keep_dims=True,
+                                keepdims=True,
                                 axis=1))
     y_d = 1 - tf.square(tf.norm(y, ord='euclidean',
-                                keep_dims=True,
+                                keepdims=True,
                                 axis=1))
     d = x_d * y_d
     z = z / (d + eps)
@@ -137,15 +137,15 @@ def H2E_ball(grad, eps=1E-5):
         shape = grad.get_shape().as_list()
         if (len(shape) >= 3):
             grad_scale = 1 - tf.square(tf.norm(grad, axis=[-2, -1],
-                                               ord='euclidean', keep_dims=True))
+                                               ord='euclidean', keepdims=True))
         elif (len(shape) == 2):
             grad_scale = 1 - tf.square(tf.norm(grad, ord='euclidean',
-                                               keep_dims=True))
+                                               keepdims=True))
         else:
             return grad
     except:
         grad_scale = 1 - tf.square(tf.norm(grad, ord='euclidean',
-                                           keep_dims=True))
+                                           keepdims=True))
 
     grad_scale = tf.square(grad_scale) + eps
     grad_scale = (grad_scale) / 4

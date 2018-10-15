@@ -10,35 +10,37 @@ class YahooQA:
         test = 2
         dev = 3
 
-    def __init__(self):
+    def __init__(self, path, word_to_index, index_to_embedding, qmax, pos_max, neg_max):
+        self.path = path
+        self.word_to_index = word_to_index
+        self.index_to_embedding = index_to_embedding
+        self.qmax = qmax
+        self.pos_max = pos_max
+        self.neg_max = neg_max
         self.dataset = dict()
         self.splits = dict()
         self.parts = list(self.Parts.__members__.keys())
         for part in self.parts:
             self.splits[part] = dict()
         # self.feed_data = dict()
-        self.feed_data = tuple()
+        self.feed_data = dict()
+        self.load_dataset(self.path)
+        self._create_splits()
 
     def load_dataset(self, file_path):
         self.dataset = pickle.load(open(file_path, 'rb'))
-        self.create_splits()
-        return self
 
     def save_dataset(self, file_path):
-        pickle.dump(dataset, open(file_path, 'wb'))
-        return self
+        pickle.dump(self.dataset, open(file_path, 'wb'))
 
-    def create_splits(self):
+    def _create_splits(self):
         for part in self.parts:
-            keys = list(self.dataset[part].keys())
-            for key in keys:
-                self.splits[part][key] = self.dataset[part][key]
-        return self
+            self.splits[part] = self._create_feed_data(self.dataset[part])
 
-    def create_feed_data(self, dataset, word_to_index, qmax, pos_max, neg_max):
+    def _create_feed_data(self, dataset):
 
         def to_ints(text, size, pad=0):
-            text_ints = [word_to_index[word] for word in text]
+            text_ints = [self.word_to_index[word] for word in text]
             while len(text_ints) < size:
                 text_ints.append(pad)
             return text_ints[:size]
@@ -73,20 +75,17 @@ class YahooQA:
 
         questions, questions_len = [], []
         for question in dataset.keys():
-            questions.append(to_ints(question, qmax))
+            questions.append(to_ints(question, self.qmax))
             questions_len.append(len(question))
 
         pos, pos_len, neg, neg_len = [], [], [], []
         for answer_tups in dataset.values():
             pos_answer, neg_answer = get_pos_neg(answer_tups)
-            pos.append(to_ints(pos_answer, pos_max))
+            pos.append(to_ints(pos_answer, self.pos_max))
             pos_len.append(len(pos_answer))
-            # neg_answer = answer_tups[first][0]
-            neg.append(to_ints(neg_answer, neg_max))
+            neg.append(to_ints(neg_answer, self.neg_max))
             neg_len.append(len(neg_answer))
-        self.feed_data = questions, questions_len, pos, pos_len, neg, neg_len
-        return self
-
+        return questions, questions_len, pos, pos_len, neg, neg_len
 
     def display(self, part='train'):
         # for tup in zip(*self.feed_data[part]):
