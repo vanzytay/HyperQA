@@ -426,13 +426,12 @@ class HyperQA:
 
             eval_dict = self._get_eval_dict(batch)
 
-            # for i, (k, val) in enumerate(eval_dict.items()):
-            feed_dict = self.get_feed_dict(eval_dict.values(), mode='testing')
+            feed_dict = self.get_feed_dict([eval_dict.values()], mode='testing')
             loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
             predictions = np.array(predictions)
 
             for j in range(1, len(predictions), bsz):
-                preds = predictions[j-1:j]
+                preds = predictions[j-1:j-1+bsz]
                 pred_idx = j - 1 + np.argmin(preds)
 
                 question = [eval_dict.values()][0][pred_idx]
