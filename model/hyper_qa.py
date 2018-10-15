@@ -356,7 +356,7 @@ class HyperQA:
             losses = []
             # random.shuffle(data)
             num_batches = int(len(self.train_set[0]) / self.args.batch_size)
-            # num_batches = 5
+            num_batches = 5
             all_acc = 0
             for i in tqdm(range(0, num_batches + 1)):
                 batch = batchify(self.train_set, i, self.args.batch_size, max_sample=len(self.train_set[0]))
@@ -408,15 +408,11 @@ class HyperQA:
                 filter(lambda w: w != '<user>', [self.index_to_word[w] for w in result])
             ).split('9')))
 
-        acc = 0
         correct = 0
         all = 0
         num_batches = int(len(data[0]) / bsz)
-        # num_batches = 5
+        num_batches = 5
         all_preds = []
-        raw_preds = []
-        ff_feats = []
-        all_qout = []
 
         # actual_labels = [x[2] for x in data]
         for i in tqdm(range(num_batches + 1)):
@@ -424,9 +420,9 @@ class HyperQA:
             if len(batch) == 0:
                 continue
 
-            eval_dict = self._get_eval_dict(batch)
+            eval_set = self._get_eval_set(batch)
 
-            feed_dict = self.get_feed_dict([eval_dict.values()], mode='testing')
+            feed_dict = self.get_feed_dict(eval_set[:-1], mode='testing')
             loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
             predictions = np.array(predictions)
 
@@ -434,9 +430,9 @@ class HyperQA:
                 preds = predictions[j-1:j-1+bsz]
                 pred_idx = j - 1 + np.argmin(preds)
 
-                question = [eval_dict.values()][0][pred_idx]
-                predicted = [eval_dict.values()][2][pred_idx]
-                actual = self._str_to_intlist([eval_dict.keys()][pred_idx])
+                question = eval_set[0][pred_idx]
+                predicted = eval_set[2][pred_idx]
+                actual = self._str_to_intlist(eval_set[-1][pred_idx])
                 if predicted == actual:
                     correct += 1
                 all += 1
@@ -463,18 +459,18 @@ class HyperQA:
         # return mse, all_preds
         return all_preds, all_preds
 
-    def _get_eval_dict(self, data) -> dict:
+    def _get_eval_set(self, data) -> list:
         questions = data[0]
         pos_answers = data[2]
         neg_answers = data[4]
-        result = defaultdict(list)
+        result = []
         for i, question in enumerate(questions):
-            key = self._intlist_to_str(pos_answers[i])
+            correct = self._intlist_to_str(pos_answers[i])
             for pos_answer in pos_answers:
-                result[key].append([
-                    question, len(question), pos_answer, len(pos_answer), neg_answers[i], len(neg_answers[i])
+                result.append([
+                    question, len(question), pos_answer, len(pos_answer), neg_answers[i], len(neg_answers[i]), correct
                 ])
-            result[key] = list(zip(*result[key]))
+            result = list(zip(*result))
         return result
 
     def _intlist_to_str(self, li, sep=' '):
