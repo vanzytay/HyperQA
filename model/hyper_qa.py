@@ -426,22 +426,27 @@ class HyperQA:
 
             eval_dict = self._get_eval_dict(batch)
 
-            for i, (k, val) in enumerate(eval_dict.items()):
-                feed_dict = self.get_feed_dict(val, mode='testing')
-                loss, preds = self.sess.run([self.cost, self.predict_op], feed_dict)
-                preds = np.array(preds)
-                pred_idx = np.argmin(preds)
+            # for i, (k, val) in enumerate(eval_dict.items()):
+            feed_dict = self.get_feed_dict(eval_dict.values(), mode='testing')
+            loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
+            predictions = np.array(predictions)
 
-                # question = val[0][pred_idx]
-                predicted = val[2][pred_idx]
-                actual = self._str_to_intlist(k)
+            for j in range(1, len(predictions), bsz):
+                preds = predictions[j-1:j]
+                pred_idx = j - 1 + np.argmin(preds)
+
+                question = [eval_dict.values()][0][pred_idx]
+                predicted = [eval_dict.values()][2][pred_idx]
+                actual = self._str_to_intlist([eval_dict.keys()][pred_idx])
                 if predicted == actual:
                     correct += 1
                 all += 1
 
-                # print_results('Question: ', question)
-                # print_results('Predicted: ', predicted)
-                # print_results('Actual: ', actual)
+                print_results('Question: ', question)
+                print_results('Predicted: ', predicted)
+                print_results('Actual: ', actual)
+                print('\n')
+
         print('Epoch: {} Accuracy: {} Correct: {} All: {}'.format(epoch, correct/all, correct, all))
 
         # acc_preds = [round(x) for x in all_preds]
