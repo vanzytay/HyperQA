@@ -7,6 +7,7 @@ from collections import Counter
 import math
 from collections import defaultdict
 from tqdm import tqdm
+import random
 import numpy as np
 from glove import load_embedding_from_disks
 from parser import build_parser
@@ -420,11 +421,12 @@ class HyperQA:
             if len(batch) == 0:
                 continue
 
-            eval_set = self._get_eval_set(batch)
+            eval_sz = 5
+            eval_set = self._get_eval_set(batch, nr_false=4)
 
-            for k in range(1, len(eval_set), bsz):
+            for k in range(1, len(eval_set), eval_sz):
 
-                batch = eval_set[k-1:k-1+bsz]
+                batch = eval_set[k-1:k-1+eval_sz]
                 feed_dict = self.get_feed_dict(batch[:-1], mode='testing')
                 loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
                 preds = np.array(predictions)
@@ -432,7 +434,7 @@ class HyperQA:
 
                 question = batch[0][pred_idx]
                 predicted = batch[2][pred_idx]
-                actual = self._str_to_intlist(batch[-1][pred_idx])
+                actual = batch[-1][pred_idx]
                 if predicted == actual:
                     correct += 1
                 all += 1
@@ -459,14 +461,21 @@ class HyperQA:
         # return mse, all_preds
         return all_preds, all_preds
 
-    def _get_eval_set(self, data) -> list:
+    def _get_eval_set(self, data, nr_false=5) -> list:
         questions = data[0]
         pos_answers = data[2]
         neg_answers = data[4]
         result = []
         for i, question in enumerate(questions):
-            correct = self._intlist_to_str(pos_answers[i])
-            for pos_answer in pos_answers:
+            correct = pos_answers[i]
+            result.append([
+                question, len(question), correct, len(correct), neg_answers[i], len(neg_answers[i]), correct
+            ])
+            while len(result) <= nr_false + 1:
+                idx = random.randrange(0, len(pos_answers))
+                if idx == i:
+                    continue
+                pos_answer = pos_answers[idx]
                 result.append([
                     question, len(question), pos_answer, len(pos_answer), neg_answers[i], len(neg_answers[i]), correct
                 ])
