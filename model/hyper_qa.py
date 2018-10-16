@@ -431,10 +431,11 @@ class HyperQA:
             all += 1
             all_preds.extend(predictions)
 
-
         di = defaultdict(list)
-        for i, question in enumerate(data[0]):
+        i = 0
+        for question in data[0]:
             di[question].append(i)
+            i += 1
 
         a, p = [], []
         for vals in di.values():
@@ -448,12 +449,14 @@ class HyperQA:
 
         print('lenn: ' + len(a))
         acc = accuracy_score(a, p)
-            # print_results('Question: ', question)
-            # print_results('Predicted: ', predicted)
-            # print_results('Actual: ', actual)
-            # print('\n')
+        # print_results('Question: ', question)
+        # print_results('Predicted: ', predicted)
+        # print_results('Actual: ', actual)
+        # print('\n')
 
-        print('Epoch: {} Accuracy: {} Correct: {} All: {} Sklean accuracy: {}'.format(epoch, correct/all, correct, all, acc))
+        print(
+            'Epoch: {} Accuracy: {} Correct: {} All: {} Sklean accuracy: {}'.format(epoch, correct / all, correct, all,
+                                                                                    acc))
 
         # acc_preds = [round(x) for x in all_preds]
         # mse = mean_squared_error(actual_labels, all_preds)
