@@ -433,7 +433,7 @@ class HyperQA:
 
         di = defaultdict(list)
         for i, question in enumerate(data[0]):
-            di[''.join(question)].append(i)
+            di[''.join([str(q) for q in question])].append(i)
             i += 1
 
         a, p = [], []
