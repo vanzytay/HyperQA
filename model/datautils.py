@@ -35,11 +35,15 @@ class YahooQA:
 
     def _create_splits(self):
         for part in self.parts:
-            self.splits[part] = self._create_feed_data(self.dataset[part])
+            if part == self.Parts.train.name:
+                self.splits[part] = self._create_feed_data(self.dataset[part], many=False)
+            else:
+                self.splits[part] = self._create_feed_data(self.dataset[part], many=True)
 
-    def _create_feed_data(self, dataset):
+    def _create_feed_data(self, dataset, many=False):
 
         def to_ints(text, size, pad=0):
+            # return text
             text_ints = [self.word_to_index[word] for word in text]
             while len(text_ints) < size:
                 text_ints.append(pad)
@@ -53,39 +57,44 @@ class YahooQA:
                 elif tup[1] == 0:
                     neg_answers.append(tup)
                 else:
-                    raise ValueError('Neither pos or neg value: {}'.format(tup[1]))
+                    raise ValueError('Neither pos nor neg value: {}'.format(tup[1]))
+            if many:
+                result = []
+                pos = pos_answers[0]
+                n = random.randint(0, len(neg_answers) - 1)
+                neg = neg_answers[n]
+                result.append([pos[0], neg[0], pos[0]])
+                for neg in neg_answers:
+                    result.append([neg[0], pos[0], pos[0]])
+                return result
+            else:
+                pos_answer = pos_answers[0]
+                n = random.randint(0, len(neg_answers) - 1)
+                neg_answer = neg_answers[n]
 
-            # if len(pos_answers) > 1:
-            #     print(pos_answers)
-            #     raise ValueError('> 1 positive answers: '.format(len(pos_answers)))
-            # if len(neg_answers) != len(answer_tups) - 1:
-            #     raise ValueError('Wrong number of negative answers: '.format(len(neg_answers)))
+                try:
+                    assert pos_answer[1] == 1 and neg_answer[1] == 0
+                except AssertionError as e:
+                    print(e)
+                    raise AssertionError(e)
 
-            pos_answer = pos_answers[0]
-            n = random.randint(0, len(neg_answers) - 1)
-            neg_answer = neg_answers[n]
+                return [[pos_answer[0], neg_answer[0], pos_answer[0]]]
 
-            try:
-                assert pos_answer[1] == 1 and neg_answer[1] == 0
-            except AssertionError as e:
-                print(e)
-                raise AssertionError(e)
+        questions, questions_len, pos, pos_len, neg, neg_len, labels  = [], [], [], [], [], [], []
 
-            return pos_answer[0], neg_answer[0]
+        for question, answer_tups in dataset.items():
+            answers = get_pos_neg(answer_tups)
+            for answer in answers:
+                pos_answer, neg_answer, label = answer
+                questions.append(to_ints(question, self.qmax))
+                questions_len.append(len(question))
+                pos.append(to_ints(pos_answer, self.pos_max))
+                pos_len.append(len(pos_answer))
+                neg.append(to_ints(neg_answer, self.neg_max))
+                neg_len.append(len(neg_answer))
+                labels.append(to_ints(label, self.pos_max))
 
-        questions, questions_len = [], []
-        for question in dataset.keys():
-            questions.append(to_ints(question, self.qmax))
-            questions_len.append(len(question))
-
-        pos, pos_len, neg, neg_len = [], [], [], []
-        for answer_tups in dataset.values():
-            pos_answer, neg_answer = get_pos_neg(answer_tups)
-            pos.append(to_ints(pos_answer, self.pos_max))
-            pos_len.append(len(pos_answer))
-            neg.append(to_ints(neg_answer, self.neg_max))
-            neg_len.append(len(neg_answer))
-        return questions, questions_len, pos, pos_len, neg, neg_len
+        return questions, questions_len, pos, pos_len, neg, neg_len, labels
 
     def display(self, part='train'):
         # for tup in zip(*self.feed_data[part]):
@@ -97,3 +106,10 @@ class YahooQA:
             print(tup[4])
             print(tup[5])
             print('\n')
+
+
+if __name__ == '__main__':
+   path = '/Users/svetlin/workspace/q-and-a/YahooQA_Splits/data/env.pkl'
+   yahoo_qa = YahooQA(path, None, None, None, None, None)
+   dev = yahoo_qa.splits[YahooQA.Parts.dev.name]
+   pass

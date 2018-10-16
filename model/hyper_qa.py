@@ -357,10 +357,10 @@ class HyperQA:
             losses = []
             # random.shuffle(data)
             num_batches = int(len(self.train_set[0]) / self.args.batch_size)
-            num_batches = 5
+            # num_batches = 5
             all_acc = 0
             for i in tqdm(range(0, num_batches + 1)):
-                batch = batchify(self.train_set, i, self.args.batch_size, max_sample=len(self.train_set[0]))
+                batch = batchify(self.train_set[:-1], i, self.args.batch_size, max_sample=len(self.train_set[0]))
                 if 0 == len(batch[0]):
                     continue
                 feed_dict = self.get_feed_dict(batch)
@@ -383,8 +383,8 @@ class HyperQA:
             #     self.args.emb_size))
 
             if epoch % self.args.eval == 0:
-                # self.sess.run(tf.assign(self.mdl.is_train, self.mdl.false))
                 _, dev_preds = self.evaluate(self.dev_set, self.args.batch_size, epoch, set_type='Dev')
+
                 # self._show_metrics(epoch, self.eval_dev, self.show_metrics, name='Dev')
                 # best_epoch1, cur_dev = self._select_test_by_dev(epoch, self.eval_dev, {}, no_test=True, lower_is_better=True)
 
@@ -412,37 +412,30 @@ class HyperQA:
         correct = 0
         all = 0
         num_batches = int(len(data[0]) / bsz)
-        num_batches = 5
+        # num_batches = 5
         all_preds = []
 
-        # actual_labels = [x[2] for x in data]
         for i in tqdm(range(num_batches + 1)):
             batch = batchify(data, i, bsz, max_sample=len(data[0]))
             if len(batch) == 0:
                 continue
 
-            eval_sz = 5
-            eval_set = self._get_eval_set(batch, nr_false=4)
+            feed_dict = self.get_feed_dict(batch[:-1], mode='testing')
+            loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
+            preds = np.array(predictions)
+            pred_idx = np.argmin(preds)
 
-            for k in range(1, len(eval_set), eval_sz):
+            question = batch[0][pred_idx]
+            predicted = batch[2][pred_idx]
+            actual = batch[-1][pred_idx]
+            if predicted == actual:
+                correct += 1
+            all += 1
 
-                batch = eval_set[k-1:k-1+eval_sz]
-                feed_dict = self.get_feed_dict(batch[:-1], mode='testing')
-                loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
-                preds = np.array(predictions)
-                pred_idx = np.argmin(preds)
-
-                question = batch[0][pred_idx]
-                predicted = batch[2][pred_idx]
-                actual = batch[-1][pred_idx]
-                if predicted == actual:
-                    correct += 1
-                all += 1
-
-                print_results('Question: ', question)
-                print_results('Predicted: ', predicted)
-                print_results('Actual: ', actual)
-                print('\n')
+            # print_results('Question: ', question)
+            # print_results('Predicted: ', predicted)
+            # print_results('Actual: ', actual)
+            # print('\n')
 
         print('Epoch: {} Accuracy: {} Correct: {} All: {}'.format(epoch, correct/all, correct, all))
 
@@ -471,7 +464,8 @@ class HyperQA:
             result.append([
                 question, len(question), correct, len(correct), neg_answers[i], len(neg_answers[i]), correct
             ])
-            while len(result) <= nr_false + 1:
+            items = 1
+            while items <= nr_false + 1:
                 idx = random.randrange(0, len(pos_answers))
                 if idx == i:
                     continue
@@ -479,6 +473,7 @@ class HyperQA:
                 result.append([
                     question, len(question), pos_answer, len(pos_answer), neg_answers[i], len(neg_answers[i]), correct
                 ])
+                items += 1
         result = list(zip(*result))
         return result
 
