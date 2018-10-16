@@ -3,12 +3,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import Counter
-import math
-from collections import defaultdict
 from tqdm import tqdm
-import random
 import numpy as np
+from collections import defaultdict
+from sklearn.metrics import accuracy_score
 from glove import load_embedding_from_disks
 from parser import build_parser
 from utilities import *
@@ -431,16 +429,33 @@ class HyperQA:
             if predicted == actual:
                 correct += 1
             all += 1
+            all_preds.extend(predictions)
 
+
+        di = defaultdict(list)
+        for i, question in enumerate(data[0]):
+            di[question].append(i)
+
+        a, p = [], []
+        for vals in di.values():
+            all_preds = np.array(all_preds)
+            preds_slice = all_preds[vals]
+            min_idx = np.argmin(preds_slice)
+            pred = preds_slice[min_idx]
+            p.append(pred)
+            act = data[-1][min_idx]
+            a.append(act)
+
+        print('lenn: ' + len(a))
+        acc = accuracy_score(a, p)
             # print_results('Question: ', question)
             # print_results('Predicted: ', predicted)
             # print_results('Actual: ', actual)
             # print('\n')
 
-        print('Epoch: {} Accuracy: {} Correct: {} All: {}'.format(epoch, correct/all, correct, all))
+        print('Epoch: {} Accuracy: {} Correct: {} All: {} Sklean accuracy: {}'.format(epoch, correct/all, correct, all, acc))
 
         # acc_preds = [round(x) for x in all_preds]
-        # acc = accuracy_score(actual_labels, acc_preds)
         # mse = mean_squared_error(actual_labels, all_preds)
         # actual_labels = [int(x) for x in actual_labels]
         # all_preds = [int(x) for x in all_preds]
@@ -453,35 +468,6 @@ class HyperQA:
         # # self._register_eval_score(epoch, set_type, 'F1', f1)
         # return mse, all_preds
         return all_preds, all_preds
-
-    def _get_eval_set(self, data, nr_false=5) -> list:
-        questions = data[0]
-        pos_answers = data[2]
-        neg_answers = data[4]
-        result = []
-        for i, question in enumerate(questions):
-            correct = pos_answers[i]
-            result.append([
-                question, len(question), correct, len(correct), neg_answers[i], len(neg_answers[i]), correct
-            ])
-            items = 1
-            while items <= nr_false + 1:
-                idx = random.randrange(0, len(pos_answers))
-                if idx == i:
-                    continue
-                pos_answer = pos_answers[idx]
-                result.append([
-                    question, len(question), pos_answer, len(pos_answer), neg_answers[i], len(neg_answers[i]), correct
-                ])
-                items += 1
-        result = list(zip(*result))
-        return result
-
-    def _intlist_to_str(self, li, sep=' '):
-        return sep.join([str(w) for w in li])
-
-    def _str_to_intlist(self, str, sep=' '):
-        return [int(num) for num in str.split(sep)]
 
 
 if __name__ == '__main__':
