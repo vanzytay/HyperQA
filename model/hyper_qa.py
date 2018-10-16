@@ -407,6 +407,9 @@ class HyperQA:
                 filter(lambda w: w != '<user>', [self.index_to_word[w] for w in result])
             ).split('9')))
 
+        def to_str(question):
+            return ''.join([str(q) for q in question])
+
         correct = 0
         all = 0
         num_batches = int(len(data[0]) / bsz)
@@ -433,7 +436,7 @@ class HyperQA:
 
         di = defaultdict(list)
         for i, question in enumerate(data[0]):
-            di[''.join([str(q) for q in question])].append(i)
+            di[to_str(question)].append(i)
 
         a, p = [], []
         for vals in di.values():
@@ -441,9 +444,9 @@ class HyperQA:
             preds_slice = all_preds[vals]
             min_idx = np.argmin(preds_slice)
             pred = preds_slice[min_idx]
-            p.append(pred)
+            p.append(to_str(pred))
             act = data[-1][min_idx]
-            a.append(act)
+            a.append(to_str(act))
 
         print('lenn: {}'.format(len(a)))
         acc = accuracy_score(a, p)
