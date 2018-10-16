@@ -424,7 +424,7 @@ class HyperQA:
             feed_dict = self.get_feed_dict(batch[:-1], mode='testing')
             loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
             preds = np.array(predictions)
-            pred_idx = np.argmin(preds)
+            pred_idx = np.argmax(preds)
 
             question = batch[0][pred_idx]
             predicted = batch[2][pred_idx]
