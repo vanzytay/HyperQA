@@ -407,8 +407,8 @@ class HyperQA:
                 filter(lambda w: w != '<user>', [self.index_to_word[w] for w in result])
             ).split('9')))
 
-        def to_str(question):
-            return ''.join([str(q) for q in question])
+        def to_str(li):
+            return ''.join([str(i) for i in li])
 
         correct = 0
         all = 0
@@ -449,6 +449,7 @@ class HyperQA:
             a.append(to_str(act))
 
         print('lenn: {}'.format(len(a)))
+        print('a0: {} p0: {}'.format(a[0], p[0]))
         acc = accuracy_score(a, p)
         # print_results('Question: ', question)
         # print_results('Predicted: ', predicted)
