@@ -445,7 +445,7 @@ class HyperQA:
             min_idx = np.argmin(preds_slice)
             pred = data[2][vals[0]+min_idx]
             p.append(to_str(pred))
-            act = data[-1][min_idx]
+            act = data[-1][vals[0]+min_idx]
             a.append(to_str(act))
 
         print('lenn: {}'.format(len(a)))
