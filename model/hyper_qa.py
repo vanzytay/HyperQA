@@ -443,7 +443,7 @@ class HyperQA:
             all_preds = np.array(all_preds)
             preds_slice = all_preds[vals]
             min_idx = np.argmin(preds_slice)
-            pred = preds_slice[min_idx]
+            pred = data[2][vals[0]+min_idx]
             p.append(to_str(pred))
             act = data[-1][min_idx]
             a.append(to_str(act))
