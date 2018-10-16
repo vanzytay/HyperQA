@@ -432,9 +432,8 @@ class HyperQA:
             all_preds.extend(predictions)
 
         di = defaultdict(list)
-        i = 0
-        for question in data[0]:
-            di[question].append(i)
+        for i, question in enumerate(data[0]):
+            di[''.join(question)].append(i)
             i += 1
 
         a, p = [], []
