@@ -434,7 +434,6 @@ class HyperQA:
         di = defaultdict(list)
         for i, question in enumerate(data[0]):
             di[''.join([str(q) for q in question])].append(i)
-            i += 1
 
         a, p = [], []
         for vals in di.values():
@@ -446,7 +445,7 @@ class HyperQA:
             act = data[-1][min_idx]
             a.append(act)
 
-        print('lenn: ' + len(a))
+        print('lenn: {}'.format(len(a)))
         acc = accuracy_score(a, p)
         # print_results('Question: ', question)
         # print_results('Predicted: ', predicted)
