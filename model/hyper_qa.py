@@ -386,8 +386,7 @@ class HyperQA:
                 # self._show_metrics(epoch, self.eval_dev, self.show_metrics, name='Dev')
                 # best_epoch1, cur_dev = self._select_test_by_dev(epoch, self.eval_dev, {}, no_test=True, lower_is_better=True)
 
-            #     _, test_preds = self.evaluate(self.test_set,
-            #                                   self.args.batch_size, epoch, set_type='Test')
+                _, test_preds = self.evaluate(self.test_set, self.args.batch_size, epoch, set_type='Test')
             #     self._show_metrics(epoch, self.eval_test,
             #                        self.show_metrics,
             #                        name='Test')
@@ -400,7 +399,7 @@ class HyperQA:
             #         print("Ended at early stop")
             #         sys.exit(0)
 
-    def evaluate(self, data, bsz, epoch, set_type=""):
+    def evaluate(self, data, bsz, epoch, set_type=''):
 
         def print_results(str, result):
             print(str.ljust(20, ' ') + '  '.join(''.join(
@@ -410,8 +409,6 @@ class HyperQA:
         def to_str(li):
             return ''.join([str(i) for i in li])
 
-        correct = 0
-        all = 0
         num_batches = int(len(data[0]) / bsz)
         # num_batches = 5
         all_preds = []
@@ -423,15 +420,6 @@ class HyperQA:
 
             feed_dict = self.get_feed_dict(batch[:-1], mode='testing')
             loss, predictions = self.sess.run([self.cost, self.predict_op], feed_dict)
-            preds = np.array(predictions)
-            pred_idx = np.argmax(preds)
-
-            question = batch[0][pred_idx]
-            predicted = batch[2][pred_idx]
-            actual = batch[-1][pred_idx]
-            if predicted == actual:
-                correct += 1
-            all += 1
             all_preds.extend(predictions)
 
         di = defaultdict(list)
@@ -442,23 +430,21 @@ class HyperQA:
         for vals in di.values():
             all_preds = np.array(all_preds)
             preds_slice = all_preds[vals]
-            min_idx = np.argmin(preds_slice)
-            pred = data[2][vals[0]+min_idx]
+            max_idx = np.argmax(preds_slice)
+            pred = data[2][vals[0] + max_idx]
             p.append(to_str(pred))
-            act = data[-1][vals[0]+min_idx]
+            act = data[-1][vals[0] + max_idx]
             a.append(to_str(act))
 
-        print('lenn: {}'.format(len(a)))
-        print('a0: {} p0: {}'.format(a[0], p[0]))
+        # print('lenn: {}'.format(len(a)))
+        # print('a0: {} p0: {}'.format(a[0], p[0]))
         acc = accuracy_score(a, p)
         # print_results('Question: ', question)
         # print_results('Predicted: ', predicted)
         # print_results('Actual: ', actual)
         # print('\n')
 
-        print(
-            'Epoch: {} Accuracy: {} Correct: {} All: {} Sklean accuracy: {}'.format(epoch, correct / all, correct, all,
-                                                                                    acc))
+        print('Epoch: {} {} accuracy: {}'.format(epoch, set_type, acc))
 
         # acc_preds = [round(x) for x in all_preds]
         # mse = mean_squared_error(actual_labels, all_preds)
