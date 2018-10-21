@@ -52,8 +52,22 @@ class YahooQA:
         def not_valid(text, min_chars=5, max_words=50):
             return len(text.split()) > max_words or len(text) < min_chars
 
-        def get_pos_neg(answer_tups):
-            pos_answers, neg_answers = [], []
+        def get_all_neg_answers():
+            all_neg_answers = []
+            for answers in dataset.values():
+                for answer in answers:
+                    if not_valid(answer[0], min_chars=self.char_min, max_words=self.amax):
+                        print('Invalid answer: {}'.format(answer[0]))
+                        continue
+                    if answer[1] == 0:
+                        all_neg_answers.append(answer[0])
+            all_neg_answers = list(set(all_neg_answers))
+            all_neg_answers = list(zip(all_neg_answers, [0]*len(all_neg_answers)))
+            return all_neg_answers
+
+        def get_pos_neg(answer_tups, all_neg_answers, num_neg=5):
+            pos_answers = []
+            neg_answers = random.sample(all_neg_answers, num_neg)
             for tup in answer_tups:
                 if not_valid(tup[0], min_chars=self.char_min, max_words=self.amax):
                     print('Invalid answer: {}'.format(tup[0]))
@@ -61,40 +75,39 @@ class YahooQA:
                 if tup[1] == 1:
                     pos_answers.append(tup)
                 elif tup[1] == 0:
-                    neg_answers.append(tup)
+                    pass
                 else:
                     raise ValueError('Neither pos nor neg value: {}'.format(tup[1]))
+            result = []
             if many:
-                result = []
                 pos = pos_answers[0]
                 n = random.randint(0, len(neg_answers) - 1)
                 neg = neg_answers[n]
                 result.append([pos[0], neg[0], pos[0]])
                 for neg in neg_answers:
+                    assert_labels(pos, neg)
                     result.append([neg[0], pos[0], pos[0]])
-                return result
             else:
-                result = []
                 pos = pos_answers[0]
                 for neg in neg_answers:
+                    assert_labels(pos, neg)
                     result.append([pos[0], neg[0], pos[0]])
-                return result
-                # pos_answer = pos_answers[0]
-                # n = random.randint(0, len(neg_answers) - 1)
-                # neg_answer = neg_answers[n]
 
-                try:
-                    assert pos_answer[1] == 1 and neg_answer[1] == 0
-                except AssertionError as e:
-                    print(e)
-                    raise AssertionError(e)
+            return result
 
-                return [[pos_answer[0], neg_answer[0], pos_answer[0]]]
+        def assert_labels(pos_answer, neg_answer):
+            try:
+                assert pos_answer[1] == 1 and neg_answer[1] == 0
+            except AssertionError as e:
+                print(e)
+                raise AssertionError(e)
 
         questions, questions_len, pos, pos_len, neg, neg_len, labels  = [], [], [], [], [], [], []
 
+        all_neg_answers = get_all_neg_answers()
+
         for question, answer_tups in dataset.items():
-            answers = get_pos_neg(answer_tups)
+            answers = get_pos_neg(answer_tups, all_neg_answers, num_neg=5)
             for answer in answers:
                 pos_answer, neg_answer, label = answer
                 questions.append(to_ints(question, self.qmax))
@@ -106,6 +119,7 @@ class YahooQA:
                 labels.append(to_ints(label, self.amax))
 
         return questions, questions_len, pos, pos_len, neg, neg_len, labels
+
 
     def display(self, part='train'):
         # for tup in zip(*self.feed_data[part]):
