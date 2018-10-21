@@ -45,6 +45,7 @@ class HyperQA:
 
         self.word_to_index, self.index_to_embedding = dataset.word_to_index, dataset.index_to_embedding
         self.index_to_word = {val: k for k, val in self.word_to_index.items()}
+        self.vocab_size = len(self.index_to_embedding)
 
         if self.args.init_type == 'xavier':
             self.initializer = tf.contrib.layers.xavier_initializer()
@@ -77,9 +78,9 @@ class HyperQA:
         feed_dict = {
             # question
             self.q1_inputs: data[0],
+            self.q1_len: data[1],
             # positive answer
             self.q2_inputs: data[2],
-            self.q1_len: data[1],
             self.q2_len: data[3],
             # negative answer
             self.q3_inputs: data[4],
@@ -177,13 +178,13 @@ class HyperQA:
 
         with self.graph.as_default():
             with tf.name_scope('q1_input'):
-                self.q1_inputs = tf.placeholder(tf.int32, shape=[None, self.args.qmax], name='q1_inputs')
+                self.q1_inputs = tf.placeholder(tf.int32, shape=[None, None], name='q1_inputs')
 
             with tf.name_scope('q2_input'):
-                self.q2_inputs = tf.placeholder(tf.int32, shape=[None, self.args.amax], name='q2_inputs')
+                self.q2_inputs = tf.placeholder(tf.int32, shape=[None, None], name='q2_inputs')
 
             with tf.name_scope('q3_input'):
-                self.q3_inputs = tf.placeholder(tf.int32, shape=[None, self.args.amax], name='q3_inputs')
+                self.q3_inputs = tf.placeholder(tf.int32, shape=[None, None], name='q3_inputs')
 
             with tf.name_scope('dropout'):
                 self.dropout = tf.placeholder(tf.float32, name='dropout')
@@ -437,7 +438,7 @@ class HyperQA:
             a.append(to_str(act))
 
         # print('lenn: {}'.format(len(a)))
-        # print('a0: {} p0: {}'.format(a[0], p[0]))
+        print('a0: {} p0: {}'.format(a[0], p[0]))
         acc = accuracy_score(a, p)
         # print_results('Question: ', question)
         # print_results('Predicted: ', predicted)
@@ -462,8 +463,12 @@ class HyperQA:
 
 
 if __name__ == '__main__':
+    vocab_size=1193515
     args = build_parser().parse_args()
     word_to_index, index_to_embedding = load_embedding_from_disks(args.glove, with_indexes=True)
-    yahoo_ds = YahooQA(args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.amax)
-    hyper_qa = HyperQA(yahoo_ds, vocab_size=1193515)
+    print('Embedding loaded')
+    yahoo_ds = YahooQA(args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.char_min)
+    print('YahooDS loaded')
+    hyper_qa = HyperQA(yahoo_ds, vocab_size=vocab_size)
+    print('HyoerQA created')
     hyper_qa.train()

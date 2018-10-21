@@ -10,13 +10,13 @@ class YahooQA:
         test = 2
         dev = 3
 
-    def __init__(self, path, word_to_index, index_to_embedding, qmax, pos_max, neg_max):
+    def __init__(self, path, word_to_index, index_to_embedding, qmax, amax, char_min):
         self.path = path
         self.word_to_index = word_to_index
         self.index_to_embedding = index_to_embedding
         self.qmax = qmax
-        self.pos_max = pos_max
-        self.neg_max = neg_max
+        self.amax = amax
+        self.char_min = char_min
         self.dataset = dict()
         self.splits = dict()
         self.parts = list(self.Parts.__members__.keys())
@@ -44,14 +44,20 @@ class YahooQA:
 
         def to_ints(text, size, pad=0):
             # return text
-            text_ints = [self.word_to_index[word] for word in text]
+            text_ints = [self.word_to_index[word] for word in text.split()]
             while len(text_ints) < size:
                 text_ints.append(pad)
             return text_ints[:size]
 
+        def not_valid(text, min_chars=5, max_words=50):
+            return len(text.split()) > max_words or len(text) < min_chars
+
         def get_pos_neg(answer_tups):
             pos_answers, neg_answers = [], []
             for tup in answer_tups:
+                if not_valid(tup[0], min_chars=self.char_min, max_words=self.amax):
+                    print('Invalid answer: {}'.format(tup[0]))
+                    continue
                 if tup[1] == 1:
                     pos_answers.append(tup)
                 elif tup[1] == 0:
@@ -68,9 +74,14 @@ class YahooQA:
                     result.append([neg[0], pos[0], pos[0]])
                 return result
             else:
-                pos_answer = pos_answers[0]
-                n = random.randint(0, len(neg_answers) - 1)
-                neg_answer = neg_answers[n]
+                result = []
+                pos = pos_answers[0]
+                for neg in neg_answers:
+                    result.append([pos[0], neg[0], pos[0]])
+                return result
+                # pos_answer = pos_answers[0]
+                # n = random.randint(0, len(neg_answers) - 1)
+                # neg_answer = neg_answers[n]
 
                 try:
                     assert pos_answer[1] == 1 and neg_answer[1] == 0
@@ -87,12 +98,12 @@ class YahooQA:
             for answer in answers:
                 pos_answer, neg_answer, label = answer
                 questions.append(to_ints(question, self.qmax))
-                questions_len.append(len(question))
-                pos.append(to_ints(pos_answer, self.pos_max))
-                pos_len.append(len(pos_answer))
-                neg.append(to_ints(neg_answer, self.neg_max))
-                neg_len.append(len(neg_answer))
-                labels.append(to_ints(label, self.pos_max))
+                questions_len.append(len(question.split()))
+                pos.append(to_ints(pos_answer, self.amax))
+                pos_len.append(len(pos_answer.split()))
+                neg.append(to_ints(neg_answer, self.amax))
+                neg_len.append(len(neg_answer.split()))
+                labels.append(to_ints(label, self.amax))
 
         return questions, questions_len, pos, pos_len, neg, neg_len, labels
 
