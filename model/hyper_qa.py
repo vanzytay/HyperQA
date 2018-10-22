@@ -436,13 +436,7 @@ class HyperQA:
             act = data[-1][vals[0] + max_idx]
             a.append(to_str(act))
 
-        # print('lenn: {}'.format(len(a)))
-        # print('a0: {} p0: {}'.format(a[0], p[0]))
         acc = accuracy_score(a, p)
-        # print_results('Question: ', question)
-        # print_results('Predicted: ', predicted)
-        # print_results('Actual: ', actual)
-        # print('\n')
 
         print('Epoch: {} {} accuracy: {}'.format(epoch, set_type, acc))
 
@@ -469,5 +463,5 @@ if __name__ == '__main__':
     yahoo_ds = YahooQA(args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.char_min, args.num_neg)
     print('YahooDS loaded')
     hyper_qa = HyperQA(yahoo_ds, vocab_size=vocab_size)
-    print('HyoerQA created')
+    print('HyperQA created')
     hyper_qa.train()
