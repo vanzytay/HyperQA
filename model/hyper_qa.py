@@ -437,7 +437,7 @@ class HyperQA:
             a.append(to_str(act))
 
         # print('lenn: {}'.format(len(a)))
-        print('a0: {} p0: {}'.format(a[0], p[0]))
+        # print('a0: {} p0: {}'.format(a[0], p[0]))
         acc = accuracy_score(a, p)
         # print_results('Question: ', question)
         # print_results('Predicted: ', predicted)
