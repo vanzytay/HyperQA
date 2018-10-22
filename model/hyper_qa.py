@@ -358,7 +358,7 @@ class HyperQA:
             num_batches = int(len(self.train_set[0]) / self.args.batch_size)
             # num_batches = 5
             all_acc = 0
-            for i in tqdm(range(0, num_batches + 1)):
+            for i in range(0, num_batches + 1):
                 batch = batchify(self.train_set[:-1], i, self.args.batch_size, max_sample=len(self.train_set[0]))
                 if 0 == len(batch[0]):
                     continue
@@ -467,7 +467,7 @@ if __name__ == '__main__':
     args = build_parser().parse_args()
     word_to_index, index_to_embedding = load_embedding_from_disks(args.glove, with_indexes=True)
     print('Embedding loaded')
-    yahoo_ds = YahooQA(args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.char_min)
+    yahoo_ds = YahooQA(args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.char_min, args.num_neg)
     print('YahooDS loaded')
     hyper_qa = HyperQA(yahoo_ds, vocab_size=vocab_size)
     print('HyoerQA created')
