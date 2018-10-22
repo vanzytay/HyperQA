@@ -10,7 +10,7 @@ class YahooQA:
         test = 2
         dev = 3
 
-    def __init__(self, path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg):
+    def __init__(self, path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg=5):
         self.path = path
         self.word_to_index = word_to_index
         self.index_to_embedding = index_to_embedding
@@ -66,9 +66,9 @@ class YahooQA:
             all_neg_answers = list(zip(all_neg_answers, [0]*len(all_neg_answers)))
             return all_neg_answers
 
-        def get_pos_neg(answer_tups, all_neg_answers, num_neg=5):
+        def get_pos_neg(answer_tups, all_neg_answers):
             pos_answers = []
-            neg_answers = random.sample(all_neg_answers, num_neg)
+            neg_answers = random.sample(all_neg_answers, self.num_neg)
             for tup in answer_tups:
                 if not_valid(tup[0], min_chars=self.char_min, max_words=self.amax):
                     print('Invalid answer: {}'.format(tup[0]))
@@ -107,7 +107,7 @@ class YahooQA:
         all_neg_answers = get_all_neg_answers()
 
         for question, answer_tups in dataset.items():
-            answers = get_pos_neg(answer_tups, all_neg_answers, num_neg=5)
+            answers = get_pos_neg(answer_tups, all_neg_answers)
             for answer in answers:
                 pos_answer, neg_answer, label = answer
                 questions.append(to_ints(question, self.qmax))
