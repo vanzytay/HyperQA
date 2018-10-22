@@ -1,4 +1,5 @@
 import random
+random.seed(4242)
 import pickle
 from enum import Enum
 

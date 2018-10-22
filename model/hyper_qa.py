@@ -3,8 +3,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import random
-random.seed(4242)
 from tqdm import tqdm
 import numpy as np
 from collections import defaultdict
