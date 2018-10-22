@@ -215,7 +215,8 @@ class HyperQA:
                 if self.args.pretrained == 1:
                     self.embeddings = tf.Variable(
                         tf.constant(0.0, shape=[self.vocab_size, self.args.emb_size]),
-                        trainable=self.args.trainable,
+                        # trainable=self.args.trainable,
+                        trainable=False,
                         name="embeddings"
                     )
                     self.embeddings_init = self.embeddings.assign(self.emb_placeholder)
