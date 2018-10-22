@@ -17,7 +17,7 @@ class YahooQA:
         self.qmax = qmax
         self.amax = amax
         self.char_min = char_min
-        self.num_neg
+        self.num_neg = num_neg
         self.dataset = dict()
         self.splits = dict()
         self.parts = list(self.Parts.__members__.keys())
