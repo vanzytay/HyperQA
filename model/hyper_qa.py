@@ -353,7 +353,7 @@ class HyperQA:
         print("Training {}".format(len(self.train_set[0])))
         # self.sess.run(tf.assign(self.mdl.is_train, self.mdl.true))
         for epoch in range(1, self.args.epochs + 1):
-            losses = []
+            # losses = []
             # random.shuffle(data)
             num_batches = int(len(self.train_set[0]) / self.args.batch_size)
             # num_batches = 5
@@ -370,8 +370,7 @@ class HyperQA:
                 #     self.train_writer.add_summary(summary, counter)
                 # counter += 1
 
-                losses.append(loss)
-                print(loss)
+                # losses.append(loss)
 
             # t1 = time.clock()
             # self.write_to_file("[{}] [Epoch {}] [{}] loss={} acc={}".format(
