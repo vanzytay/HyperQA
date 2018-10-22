@@ -1,6 +1,5 @@
 import random
 import pickle
-import os
 from enum import Enum
 
 
@@ -82,8 +81,7 @@ class YahooQA:
             result = []
             if many:
                 pos = pos_answers[0]
-                n = random.randint(0, len(neg_answers) - 1)
-                neg = neg_answers[n]
+                neg = neg_answers[0]
                 result.append([pos[0], neg[0], pos[0]])
                 for neg in neg_answers:
                     assert_labels(pos, neg)
