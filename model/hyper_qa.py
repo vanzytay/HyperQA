@@ -29,6 +29,7 @@ class HyperQA:
     """
 
     def __init__(self, dataset: YahooQA, vocab_size: int, char_vocab=0, pos_vocab=0):
+        tf.set_random_seed(4242)
         self.parser = build_parser()
         self.vocab_size = vocab_size
         self.char_vocab = char_vocab
