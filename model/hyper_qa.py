@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score
 from glove import load_embedding_from_disks
 from parser import build_parser
 from utilities import *
-from datautils import YahooQA
+from datasets.yahooqa import YahooQA
 
 
 def batchify(data, i, bsz, max_sample):
