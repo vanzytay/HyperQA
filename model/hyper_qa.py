@@ -63,7 +63,8 @@ class HyperQA:
         if self.args.init_type == 'xavier':
             self.initializer = tf.contrib.layers.xavier_initializer()
         elif self.args.init_type == 'normal':
-            self.initializer = tf.random_normal_initializer(0.0, self.args.init)
+            # self.initializer = tf.random_normal_initializer(0.0, self.args.init)
+            self.initializer = tf.random_normal_initializer()
         elif self.args.init_type == 'uniform':
             self.initializer = tf.random_uniform_initializer(maxval=self.args.init, minval=-self.args.init)
         else:
@@ -385,14 +386,6 @@ class HyperQA:
                 # counter += 1
 
                 # losses.append(loss)
-
-            # t1 = time.clock()
-            # self.write_to_file("[{}] [Epoch {}] [{}] loss={} acc={}".format(
-            #     self.args.dataset, epoch, self.model_name,
-            #     np.mean(losses), all_acc / len(self.train_set)))
-            # self.write_to_file("GPU={} | | d={}".format(
-            #     self.args.gpu,
-            #     self.args.emb_size))
 
             if epoch % self.args.eval == 0:
                 _, dev_preds = self.evaluate(self.dev_set, self.args.batch_size, epoch, set_type='Dev')
