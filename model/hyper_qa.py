@@ -423,12 +423,14 @@ class HyperQA:
         def to_str(li):
             return ''.join([str(i) for i in li])
 
-        num_batches = int(len(data[0]) / bsz)
+        questions, answers, labels = data[0], data[2], data[-1]
+
+        num_batches = int(len(questions) / bsz)
         # num_batches = 5
         all_preds = []
 
         for i in tqdm(range(num_batches + 1)):
-            batch = batchify(data, i, bsz, max_sample=len(data[0]))
+            batch = batchify(data, i, bsz, max_sample=len(questions))
             if len(batch) == 0:
                 continue
 
@@ -437,36 +439,35 @@ class HyperQA:
             all_preds.extend(predictions)
 
         di = defaultdict(list)
-        for i, question in enumerate(data[0]):
+        for i, question in enumerate(questions):
             di[to_str(question)].append(i)
 
-        a, p = [], []
+        a, p, rr = [], [], []
         for vals in di.values():
             all_preds = np.array(all_preds)
             preds_slice = all_preds[vals]
+            preds_slice = [pred[0] for pred in preds_slice]
             max_idx = np.argmax(preds_slice)
-            pred = data[2][vals[0] + max_idx]
+            batch_offset = vals[0] + max_idx
+            pred = answers[batch_offset]
             p.append(to_str(pred))
-            act = data[-1][vals[0] + max_idx]
+            act = labels[batch_offset]
             a.append(to_str(act))
 
+            sorted_idx = np.argsort(preds_slice)[::-1]
+            for i, idx in enumerate(sorted_idx):
+                batch_offset = vals[0] + idx
+                if answers[batch_offset] == labels[batch_offset]:
+                    rr.append(1/(i+1))
+                    break
+
         acc = accuracy_score(a, p)
+        mrr = np.mean(rr)
 
-        print('Epoch: {} {} accuracy: {}'.format(epoch, set_type, acc))
+        print('Epoch: {} {} accuracy: {} MRR: {}'.format(epoch, set_type, acc, mrr))
 
-        # acc_preds = [round(x) for x in all_preds]
-        # mse = mean_squared_error(actual_labels, all_preds)
-        # actual_labels = [int(x) for x in actual_labels]
-        # all_preds = [int(x) for x in all_preds]
-        # f1 = f1_score(actual_labels, all_preds, average='macro')
-        # mae = mean_absolute_error(actual_labels, all_preds)
-        # self._register_eval_score(epoch, set_type, 'MSE', mse)
-        # self._register_eval_score(epoch, set_type, 'MAE', mae)
-
-        # self._register_eval_score(epoch, set_type, 'ACC', acc)
-        # # self._register_eval_score(epoch, set_type, 'F1', f1)
-        # return mse, all_preds
         return all_preds, all_preds
+
 
 
 if __name__ == '__main__':
