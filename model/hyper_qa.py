@@ -7,10 +7,12 @@ from tqdm import tqdm
 import numpy as np
 from collections import defaultdict
 from sklearn.metrics import accuracy_score
+
+from datasets.wikiqa import WikiQA
 from glove import load_embedding_from_disks
 from parser import build_parser
 from utilities import *
-from datasets.yahooqa import YahooQA
+from datasets.yahooqa import YahooBaseQA
 
 
 def batchify(data, i, bsz, max_sample):
@@ -22,13 +24,23 @@ def batchify(data, i, bsz, max_sample):
     return data
 
 
+def load_ds(name, path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg):
+    if name == 'yahooqa':
+        dataset = YahooBaseQA(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
+        print('YahooDS loaded')
+    elif name == 'wikiqa':
+        dataset = WikiQA(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
+        print('WikiQA loaded')
+    return dataset
+
+
 class HyperQA:
     """
     Hyperbolic Embeddings for QA
 
     """
 
-    def __init__(self, dataset: YahooQA, vocab_size: int, char_vocab=0, pos_vocab=0):
+    def __init__(self, dataset: YahooBaseQA, vocab_size: int, char_vocab=0, pos_vocab=0):
         tf.set_random_seed(4242)
         self.parser = build_parser()
         self.vocab_size = vocab_size
@@ -462,8 +474,9 @@ if __name__ == '__main__':
     args = build_parser().parse_args()
     word_to_index, index_to_embedding = load_embedding_from_disks(args.glove, with_indexes=True)
     print('Embedding loaded')
-    yahoo_ds = YahooQA(args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.char_min, args.num_neg)
-    print('YahooDS loaded')
-    hyper_qa = HyperQA(yahoo_ds, vocab_size=vocab_size)
+
+    dataset = load_ds(args.dataset_name, args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.char_min, args.num_neg)
+
+    hyper_qa = HyperQA(dataset, vocab_size=vocab_size)
     print('HyperQA created')
     hyper_qa.train()

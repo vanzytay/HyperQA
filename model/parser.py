@@ -13,6 +13,8 @@ def build_parser():
     """
     parser = argparse.ArgumentParser()
     ps = parser.add_argument
+    ps("--dataset_name", dest="dataset_name", type=str,
+       default='yahooqa', help="Dataset name")
     ps("--dataset", dest="dataset", type=str,
        default='A2_Amazon_Instant_Video', help="Which dataset?")
     ps("--rnn_type", dest="rnn_type", type=str, metavar='<str>',

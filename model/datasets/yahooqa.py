@@ -1,32 +1,15 @@
 import random
+
+from datasets.Base import BaseQA
+
 random.seed(4242)
 import pickle
-from enum import Enum
 
 
-class YahooQA:
-    class Parts(Enum):
-        train = 1
-        test = 2
-        dev = 3
+class YahooBaseQA(BaseQA):
 
     def __init__(self, path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg=5):
-        self.path = path
-        self.word_to_index = word_to_index
-        self.index_to_embedding = index_to_embedding
-        self.qmax = qmax
-        self.amax = amax
-        self.char_min = char_min
-        self.num_neg = num_neg
-        self.dataset = dict()
-        self.splits = dict()
-        self.parts = list(self.Parts.__members__.keys())
-        for part in self.parts:
-            self.splits[part] = dict()
-        # self.feed_data = dict()
-        self.feed_data = dict()
-        self.load_dataset(self.path)
-        self._create_splits()
+        super().__init__(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
 
     def load_dataset(self, file_path):
         self.dataset = pickle.load(open(file_path, 'rb'))
@@ -130,11 +113,12 @@ class YahooQA:
             print(tup[3])
             print(tup[4])
             print(tup[5])
+            print(tup[6])
             print('\n')
 
 
 if __name__ == '__main__':
    path = '/Users/svetlin/workspace/q-and-a/YahooQA_Splits/data/env.pkl'
-   yahoo_qa = YahooQA(path, None, None, None, None, None)
-   dev = yahoo_qa.splits[YahooQA.Parts.dev.name]
+   yahoo_qa = YahooBaseQA(path, None, None, None, None, None)
+   dev = yahoo_qa.splits[YahooBaseQA.Parts.dev.name]
    pass
