@@ -457,7 +457,7 @@ class HyperQA:
         acc = accuracy_score(a, p)
         mrr = np.mean(rr)
 
-        print('Epoch: {} {} accuracy: {} MRR: {}'.format(epoch, set_type, acc, mrr))
+        print('Epoch: {} {} P@1: {} MRR: {}'.format(epoch, set_type, acc, mrr))
 
         return all_preds, all_preds
 
