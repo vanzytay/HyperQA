@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 from __future__ import absolute_import
 from __future__ import division
-from __future__ import print_function
+
+import os
 
 from tqdm import tqdm
 import numpy as np
@@ -13,6 +14,8 @@ from glove import load_embedding_from_disks
 from parser import build_parser
 from utilities import *
 from datasets.yahooqa import YahooBaseQA
+
+tf.logging.set_verbosity(tf.logging.INFO)
 
 
 def batchify(data, i, bsz, max_sample):
@@ -27,10 +30,10 @@ def batchify(data, i, bsz, max_sample):
 def load_ds(name, path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg):
     if name == 'yahooqa':
         dataset = YahooBaseQA(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
-        print('YahooDS loaded')
+        tf.logging.info('YahooDS loaded')
     elif name == 'wikiqa':
         dataset = WikiQA(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
-        print('WikiQA loaded')
+        tf.logging.info('WikiQA loaded')
     return dataset
 
 
@@ -40,14 +43,13 @@ class HyperQA:
 
     """
 
-    def __init__(self, dataset: YahooBaseQA, vocab_size: int, char_vocab=0, pos_vocab=0, ckpt_path='/tmp/hyperqa-ckpt/model.ckpt'):
+    def __init__(self, dataset: YahooBaseQA, vocab_size: int, char_vocab=0, pos_vocab=0):
         tf.set_random_seed(4242)
         self.parser = build_parser()
         self.vocab_size = vocab_size
         self.char_vocab = char_vocab
         self.pos_vocab = pos_vocab
         self.graph = tf.Graph()
-        self.ckpt_path = ckpt_path
         self.args = self.parser.parse_args()
         self.imap = {}
         self.inspect_op = []
@@ -80,7 +82,7 @@ class HyperQA:
             self.sess.run(tf.global_variables_initializer())
             self.saver = tf.train.Saver()
 
-        tf.logging.set_verbosity(tf.logging.INFO)
+        self.ckpt_path = os.path.join(args.ckpt_path, self.__class__.__name__)
 
     def _get_pair_feed_dict(self, data, mode='training', lr=None):
 
@@ -360,7 +362,7 @@ class HyperQA:
         """
         best_mrr, best_epoch = 0, 0
         self.sess.run(self.embeddings_init, feed_dict={self.emb_placeholder: self.index_to_embedding})
-        print("Training {}".format(len(self.train_set[0])))
+        tf.logging.info("Training {}".format(len(self.train_set[0])))
         for epoch in range(1, self.args.epochs + 1):
             num_batches = int(len(self.train_set[0]) / self.args.batch_size)
             all_acc = 0
@@ -383,7 +385,7 @@ class HyperQA:
     def evaluate(self, data, bsz, epoch, set_type=''):
 
         def print_results(str, result):
-            print(str.ljust(20, ' ') + '  '.join(''.join(
+            tf.logging.info(str.ljust(20, ' ') + '  '.join(''.join(
                 filter(lambda w: w != '<user>', [self.index_to_word[w] for w in result])
             ).split('9')))
 
@@ -425,26 +427,26 @@ class HyperQA:
             for i, idx in enumerate(sorted_idx):
                 batch_offset = vals[0] + idx
                 if answers[batch_offset] == labels[batch_offset]:
-                    rr.append(1/(i+1))
+                    rr.append(1 / (i + 1))
                     break
 
         acc = accuracy_score(a, p)
         mrr = np.mean(rr)
 
-        print('Epoch: {} {} P@1: {} MRR: {}'.format(epoch, set_type, acc, mrr))
+        tf.logging.info('Epoch: {} {} P@1: {} MRR: {}'.format(epoch, set_type, acc, mrr))
 
         return mrr, all_preds
 
 
-
 if __name__ == '__main__':
-    vocab_size=1193515
+    vocab_size = 1193515
     args = build_parser().parse_args()
     word_to_index, index_to_embedding = load_embedding_from_disks(args.glove, with_indexes=True)
-    print('Embedding loaded')
+    tf.logging.info('Embedding loaded')
 
-    dataset = load_ds(args.dataset_name, args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax, args.char_min, args.num_neg)
+    dataset = load_ds(args.dataset_name, args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax,
+                      args.char_min, args.num_neg)
 
     hyper_qa = HyperQA(dataset, vocab_size=vocab_size)
-    print('HyperQA created')
+    tf.logging.info('HyperQA created')
     hyper_qa.train()
