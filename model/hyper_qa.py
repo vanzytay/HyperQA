@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from __future__ import division
 
 import os
+from typing import Tuple, List, Dict
 
 from tqdm import tqdm
 import numpy as np
@@ -255,21 +256,11 @@ class HyperQA:
             rnn_length = self.args.rnn_size
             repr_fun = self.learn_repr
 
-            self.output_pos, _ = repr_fun(q1_embed, q2_embed,
-                                          self.q1_len, self.q2_len,
-                                          self.qmax,
-                                          self.a1max, score=1, reuse=None,
-                                          extract_embed=True,
-                                          side='POS',
-                                          )
+            self.output_pos, _ = repr_fun(q1_embed, q2_embed, self.q1_len, self.q2_len, self.qmax, self.a1max, score=1,
+                                          reuse=None, extract_embed=True, side='POS')
 
-            self.output_neg, _ = repr_fun(q1_embed,
-                                          q3_embed, self.q1_len,
-                                          self.q3_len, self.qmax,
-                                          self.a2max, score=1,
-                                          reuse=True,
-                                          side='NEG',
-                                          )
+            self.output_neg, _ = repr_fun(q1_embed, q3_embed, self.q1_len, self.q3_len, self.qmax, self.a2max, score=1,
+                                          reuse=True, side='NEG')
 
             # Define loss and optimizer
             with tf.name_scope("train"):
@@ -392,6 +383,7 @@ class HyperQA:
         def to_str(li):
             return ''.join([str(i) for i in li])
 
+        # import pdb; pdb.set_trace()
         questions, answers, labels = data[0], data[2], data[-1]
 
         num_batches = int(len(questions) / bsz)
@@ -437,6 +429,21 @@ class HyperQA:
 
         return mrr, all_preds
 
+    def predict(self, data: Tuple) -> None:
+        feed_dict = self.get_feed_dict(data, mode='predict')
+        self.saver.restore(self.sess, self.ckpt_path)
+        predictions = self.sess.run(self.predict_op, feed_dict=feed_dict)
+        tf.logging.info(predictions)
+        return predictions
+
+
+def to_ints(word_to_index, text, size, pad=0):
+    # return text
+    text_ints = [word_to_index[word] for word in text.split()]
+    while len(text_ints) < size:
+        text_ints.append(pad)
+    return text_ints[:size]
+
 
 if __name__ == '__main__':
     vocab_size = 1193515
@@ -450,3 +457,23 @@ if __name__ == '__main__':
     hyper_qa = HyperQA(dataset, vocab_size=vocab_size)
     tf.logging.info('HyperQA created')
     hyper_qa.train()
+
+    # question = 'what has been the status regarding creative commons since june 2012'
+    # answers = [
+    #     'stunned , killed , bled , scalded , plucked , have their heads and feet removed , eviscerated , washed , chilled , drained , weighed , and packed .',
+    #     'general secretary hu jintao , wu bangguo , wen jiabao , jia qinglin , li changchun , xi jinping , li keqiang , he guoqiang and zhou yongkang , .',
+    #     'the region between the harz mountains in the north , the weiße elster river in the east , the franconian forest in the south and the werra river in the west .',
+    #     'it has been possible to select a creative commons license as the default , allowing other users to reuse and remix the material if it is free of copyright. .',
+    #     'that from a rational point of view it was certainly as little derogatory to the merits of christ to assert that mary was by him preserved from all taint of sin .',
+    #     'hung by their feet , stunned , killed , bled , scalded , plucked , have their heads and feet removed , eviscerated , washed , chilled , drained , weighed , and packed .',
+    # ]
+    #
+    # ans = [[answers[0], 1]]
+    # for a in answers[1:]:
+    #     ans.append([a, 0])
+    #
+    # dataset.num_neg = len(answers[1:])
+    # data = dataset._create_feed_data({question: ans}, many=True)
+    #
+    # idx = np.argmax(hyper_qa.predict(data))
+    # tf.logging.info(answers[idx])
