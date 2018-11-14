@@ -17,10 +17,15 @@ class YahooBaseQA(BaseQA):
     def save_dataset(self, file_path):
         pickle.dump(self.dataset, open(file_path, 'wb'))
 
-    def _create_splits(self):
+    def _create_splits(self, shuffle=True):
         for part in self.parts:
             if part == self.Parts.train.name:
-                self.splits[part] = self._create_feed_data(self.dataset[part], many=False)
+                if shuffle:
+                    ds = self.dataset[part]
+                    keys = list(ds.keys())
+                    random.shuffle(keys)
+                    shuffled = {key: ds[key] for key in keys}
+                self.splits[part] = self._create_feed_data(shuffled, many=False)
             else:
                 self.splits[part] = self._create_feed_data(self.dataset[part], many=True)
 

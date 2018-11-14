@@ -40,13 +40,14 @@ class HyperQA:
 
     """
 
-    def __init__(self, dataset: YahooBaseQA, vocab_size: int, char_vocab=0, pos_vocab=0):
+    def __init__(self, dataset: YahooBaseQA, vocab_size: int, char_vocab=0, pos_vocab=0, ckpt_path='/tmp/hyperqa-ckpt/model.ckpt'):
         tf.set_random_seed(4242)
         self.parser = build_parser()
         self.vocab_size = vocab_size
         self.char_vocab = char_vocab
         self.pos_vocab = pos_vocab
         self.graph = tf.Graph()
+        self.ckpt_path = ckpt_path
         self.args = self.parser.parse_args()
         self.imap = {}
         self.inspect_op = []
@@ -63,7 +64,6 @@ class HyperQA:
         if self.args.init_type == 'xavier':
             self.initializer = tf.contrib.layers.xavier_initializer()
         elif self.args.init_type == 'normal':
-            # self.initializer = tf.random_normal_initializer(0.0, self.args.init)
             self.initializer = tf.random_normal_initializer()
         elif self.args.init_type == 'uniform':
             self.initializer = tf.random_uniform_initializer(maxval=self.args.init, minval=-self.args.init)
@@ -78,6 +78,9 @@ class HyperQA:
 
         with self.graph.as_default():
             self.sess.run(tf.global_variables_initializer())
+            self.saver = tf.train.Saver()
+
+        tf.logging.set_verbosity(tf.logging.INFO)
 
     def _get_pair_feed_dict(self, data, mode='training', lr=None):
 
@@ -355,23 +358,11 @@ class HyperQA:
     def train(self):
         """ Main training loop
         """
-        # scores = []
-        # best_score = -1
-        # best_dev = -1
-        # best_epoch = -1
-        # counter = 0
-        # epoch_scores = {}
-        # self.eval_list = []
-
+        best_mrr, best_epoch = 0, 0
         self.sess.run(self.embeddings_init, feed_dict={self.emb_placeholder: self.index_to_embedding})
-
         print("Training {}".format(len(self.train_set[0])))
-        # self.sess.run(tf.assign(self.mdl.is_train, self.mdl.true))
         for epoch in range(1, self.args.epochs + 1):
-            # losses = []
-            # random.shuffle(data)
             num_batches = int(len(self.train_set[0]) / self.args.batch_size)
-            # num_batches = 5
             all_acc = 0
             for i in range(0, num_batches + 1):
                 batch = batchify(self.train_set[:-1], i, self.args.batch_size, max_sample=len(self.train_set[0]))
@@ -381,30 +372,13 @@ class HyperQA:
                 _, loss = self.sess.run([self.train_op, self.cost], feed_dict)
                 all_acc += (loss * len(batch))
 
-                # if (self.args.tensorboard):
-                #     self.train_writer.add_summary(summary, counter)
-                # counter += 1
-
-                # losses.append(loss)
-
             if epoch % self.args.eval == 0:
-                _, dev_preds = self.evaluate(self.dev_set, self.args.batch_size, epoch, set_type='Dev')
-
-                # self._show_metrics(epoch, self.eval_dev, self.show_metrics, name='Dev')
-                # best_epoch1, cur_dev = self._select_test_by_dev(epoch, self.eval_dev, {}, no_test=True, lower_is_better=True)
-
-                _, test_preds = self.evaluate(self.test_set, self.args.batch_size, epoch, set_type='Test')
-            #     self._show_metrics(epoch, self.eval_test,
-            #                        self.show_metrics,
-            #                        name='Test')
-            #     stop, max_e, best_epoch = self._select_test_by_dev(
-            #         epoch,
-            #         self.eval_dev,
-            #         self.eval_test,
-            #         lower_is_better=True)
-            #     if (epoch - best_epoch > self.args.early_stop and self.args.early_stop > 0):
-            #         print("Ended at early stop")
-            #         sys.exit(0)
+                dev_mrr, dev_preds = self.evaluate(self.dev_set, self.args.batch_size, epoch, set_type='Dev')
+                if dev_mrr > best_mrr:
+                    self.saver.save(self.sess, self.ckpt_path)
+                    best_mrr = dev_mrr
+                    best_epoch = epoch
+        tf.logging.info(f'Best epoch: {best_epoch} Best MRR: {best_mrr}')
 
     def evaluate(self, data, bsz, epoch, set_type=''):
 
@@ -459,7 +433,7 @@ class HyperQA:
 
         print('Epoch: {} {} P@1: {} MRR: {}'.format(epoch, set_type, acc, mrr))
 
-        return all_preds, all_preds
+        return mrr, all_preds
 
 
 
