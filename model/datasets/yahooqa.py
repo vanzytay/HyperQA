@@ -1,4 +1,5 @@
 import random
+from collections import namedtuple
 
 from datasets.Base import BaseQA
 
@@ -6,7 +7,7 @@ random.seed(4242)
 import pickle
 
 
-class YahooBaseQA(BaseQA):
+class YahooQA(BaseQA):
 
     def __init__(self, path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg=5):
         super().__init__(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
@@ -25,11 +26,11 @@ class YahooBaseQA(BaseQA):
                     keys = list(ds.keys())
                     random.shuffle(keys)
                     shuffled = {key: ds[key] for key in keys}
-                self.splits[part] = self._create_feed_data(shuffled, many=False)
+                self.splits[part] = self.create_feed_data(shuffled, many=False)
             else:
-                self.splits[part] = self._create_feed_data(self.dataset[part], many=True)
+                self.splits[part] = self.create_feed_data(self.dataset[part], many=True)
 
-    def _create_feed_data(self, dataset, many=False):
+    def create_feed_data(self, dataset, many=False):
 
         def to_ints(text, size, pad=0):
             # return text
@@ -51,12 +52,14 @@ class YahooBaseQA(BaseQA):
                     if answer[1] == 0:
                         all_neg_answers.append(answer[0])
             all_neg_answers = list(set(all_neg_answers))
-            all_neg_answers = list(zip(all_neg_answers, [0]*len(all_neg_answers)))
+            all_neg_answers = list(zip(all_neg_answers, [0] * len(all_neg_answers)))
             return all_neg_answers
 
         def get_pos_neg(answer_tups, all_neg_answers):
             pos_answers = []
-            neg_answers = random.sample(all_neg_answers, self.num_neg)
+            # this is due to test_prediction getting otherwise sample_size > len(all_neg_answers)
+            sample_size = min(self.num_neg, len(all_neg_answers))
+            neg_answers = random.sample(all_neg_answers, sample_size)
             for tup in answer_tups:
                 if not_valid(tup[0], min_chars=self.char_min, max_words=self.amax):
                     print('Invalid answer: {}'.format(tup[0]))
@@ -90,7 +93,11 @@ class YahooBaseQA(BaseQA):
                 print(e)
                 raise AssertionError(e)
 
-        questions, questions_len, pos, pos_len, neg, neg_len, labels  = [], [], [], [], [], [], []
+        questions, questions_len, pos, pos_len, neg, neg_len, pos_raw, labels = [], [], [], [], [], [], [], []
+        FeedData = namedtuple(
+            'FeedData',
+            ['questions', 'questions_len', 'pos', 'pos_len', 'neg', 'neg_len', 'pos_raw', 'labels']
+        )
 
         all_neg_answers = get_all_neg_answers()
 
@@ -102,12 +109,13 @@ class YahooBaseQA(BaseQA):
                 questions_len.append(len(question.split()))
                 pos.append(to_ints(pos_answer, self.amax))
                 pos_len.append(len(pos_answer.split()))
+                pos_raw.append(pos_answer)
                 neg.append(to_ints(neg_answer, self.amax))
                 neg_len.append(len(neg_answer.split()))
                 labels.append(to_ints(label, self.amax))
 
-        return questions, questions_len, pos, pos_len, neg, neg_len, labels
-
+        return FeedData(questions=questions, questions_len=questions_len, pos=pos, pos_len=pos_len, neg=neg,
+                        neg_len=neg_len, pos_raw=pos_raw, labels=labels)
 
     def display(self, part='train'):
         # for tup in zip(*self.feed_data[part]):
@@ -123,7 +131,7 @@ class YahooBaseQA(BaseQA):
 
 
 if __name__ == '__main__':
-   path = '/Users/svetlin/workspace/q-and-a/YahooQA_Splits/data/env.pkl'
-   yahoo_qa = YahooBaseQA(path, None, None, None, None, None)
-   dev = yahoo_qa.splits[YahooBaseQA.Parts.dev.name]
-   pass
+    path = '/Users/svetlin/workspace/q-and-a/YahooQA_Splits/data/env.pkl'
+    yahoo_qa = YahooQA(path, None, None, None, None, None)
+    dev = yahoo_qa.splits[YahooQA.Parts.dev.name]
+    pass

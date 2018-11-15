@@ -1,6 +1,7 @@
 from datasets.Base import BaseQA
 import pandas as pd
 import numpy as np
+
 np.random.seed(4242)
 import os
 
@@ -20,17 +21,14 @@ class WikiQA(BaseQA):
         self.dataset[self.Parts.dev.name] = pd.read_csv(dev_path, sep='\t')[cols]
         self.dataset[self.Parts.test.name] = pd.read_csv(test_path, sep='\t')[cols]
 
-    # def save_dataset(self, file_path):
-    #     pickle.dump(self.dataset, open(file_path, 'wb'))
-
     def _create_splits(self):
         for part in self.parts:
             if part == self.Parts.train.name:
-                self.splits[part] = self._create_feed_data(self.dataset[part], many=False)
+                self.splits[part] = self.create_feed_data(self.dataset[part], many=False)
             else:
-                self.splits[part] = self._create_feed_data(self.dataset[part], many=True)
+                self.splits[part] = self.create_feed_data(self.dataset[part], many=True)
 
-    def _create_feed_data(self, dataset, many=False):
+    def create_feed_data(self, dataset, many=False):
 
         def to_ints(text, size, pad=0):
             # return text
@@ -65,7 +63,6 @@ class WikiQA(BaseQA):
                         result.append([pos, neg, pos])
 
             return result
-
 
         questions, questions_len, pos, pos_len, neg, neg_len, labels = [], [], [], [], [], [], []
 

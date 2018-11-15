@@ -3,6 +3,8 @@ from __future__ import absolute_import
 from __future__ import division
 
 import os
+import pickle
+import timeit
 from typing import Tuple, List, Dict
 
 from tqdm import tqdm
@@ -10,11 +12,12 @@ import numpy as np
 from collections import defaultdict
 from sklearn.metrics import accuracy_score
 
+from datasets.Base import BaseQA
 from datasets.wikiqa import WikiQA
 from glove import load_embedding_from_disks
 from parser import build_parser
 from utilities import *
-from datasets.yahooqa import YahooBaseQA
+from datasets.yahooqa import YahooQA
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -28,9 +31,9 @@ def batchify(data, i, bsz, max_sample):
     return data
 
 
-def load_ds(name, path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg):
+def get_ds(name, path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg):
     if name == 'yahooqa':
-        dataset = YahooBaseQA(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
+        dataset = YahooQA(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
         tf.logging.info('YahooDS loaded')
     elif name == 'wikiqa':
         dataset = WikiQA(path, word_to_index, index_to_embedding, qmax, amax, char_min, num_neg)
@@ -44,10 +47,9 @@ class HyperQA:
 
     """
 
-    def __init__(self, dataset: YahooBaseQA, vocab_size: int, char_vocab=0, pos_vocab=0):
+    def __init__(self, dataset: BaseQA, char_vocab=0, pos_vocab=0):
         tf.set_random_seed(4242)
         self.parser = build_parser()
-        self.vocab_size = vocab_size
         self.char_vocab = char_vocab
         self.pos_vocab = pos_vocab
         self.graph = tf.Graph()
@@ -56,9 +58,9 @@ class HyperQA:
         self.inspect_op = []
         self.feat_prop = None
 
-        self.train_set = dataset.splits[dataset.Parts.train.name]
-        self.test_set = dataset.splits[dataset.Parts.test.name]
-        self.dev_set = dataset.splits[dataset.Parts.dev.name]
+        self._train_set = None
+        self._test_set = None
+        self._dev_set = None
 
         self.word_to_index, self.index_to_embedding = dataset.word_to_index, dataset.index_to_embedding
         self.index_to_word = {val: k for k, val in self.word_to_index.items()}
@@ -84,6 +86,24 @@ class HyperQA:
             self.saver = tf.train.Saver()
 
         self.ckpt_path = os.path.join(args.ckpt_path, self.__class__.__name__)
+
+    @property
+    def train_set(self):
+        if self._train_set is None:
+            self._train_set = dataset.splits[dataset.Parts.train.name]
+        return self._train_set
+
+    @property
+    def test_set(self):
+        if self._test_set is None:
+            self._test_set = dataset.splits[dataset.Parts.test.name]
+        return self._test_set
+
+    @property
+    def dev_set(self):
+        if self._dev_set is None:
+            self._dev_set = dataset.splits[dataset.Parts.dev.name]
+        return self._dev_set
 
     def _get_pair_feed_dict(self, data, mode='training', lr=None):
 
@@ -437,43 +457,55 @@ class HyperQA:
         return predictions
 
 
-def to_ints(word_to_index, text, size, pad=0):
-    # return text
-    text_ints = [word_to_index[word] for word in text.split()]
-    while len(text_ints) < size:
-        text_ints.append(pad)
-    return text_ints[:size]
+def test_predict():
+
+    num_neg = 3
+    top_n = 10
+
+
+    # question = 'what has been the status regarding creative commons since june 2012'
+    # correct = 'it has been possible to select a creative commons license as the default , allowing other users to reuse and remix the material if it is free of copyright. .'
+
+    question = 'how  do i convince parents to buy mr an ipod i have had a zen micro for about a year is that a decent amount of time'
+    correct = 'do a bunch of extra chores first then after they tell you how much they appreciate all your hard work spring it on them and tell them how much it would mean to you to have a new ipod'
+
+
+    tf.logging.info('start load answers')
+    answers = pickle.load(open('/tmp/ans.pkl', 'rb'))
+    answers = [a for a in answers if a != correct]
+    tf.logging.info('end load answers')
+    answers.append(correct)
+    tf.logging.info('start prepare answers')
+    ans = [[answers[0], 1]]
+    # for a in answers[1:]:
+    for a in answers[-num_neg:]:
+        ans.append([a, 0])
+    tf.logging.info('end prepare answers')
+    tf.logging.info('start create_feed_data')
+    data = dataset.create_feed_data({question: ans}, many=True)
+    tf.logging.info('end create_feed_data')
+    tf.logging.info('start predict')
+    preds = hyper_qa.predict(data)
+    preds = [p[0] for p in preds]
+    ids = np.argsort(preds)[::-1]
+    tf.logging.info('end predict')
+    print(f"Running time: {timeit.timeit('lambda: hyper_qa.predict(data)', number=1)}")
+    # tf.logging.info(idx)
+    for idx in ids[:top_n]:
+        tf.logging.info(data.pos_raw[idx])
 
 
 if __name__ == '__main__':
-    vocab_size = 1193515
     args = build_parser().parse_args()
     word_to_index, index_to_embedding = load_embedding_from_disks(args.glove, with_indexes=True)
     tf.logging.info('Embedding loaded')
 
-    dataset = load_ds(args.dataset_name, args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax,
-                      args.char_min, args.num_neg)
+    dataset = get_ds(args.dataset_name, args.dataset, word_to_index, index_to_embedding, args.qmax, args.amax,
+                     args.char_min, args.num_neg)
 
-    hyper_qa = HyperQA(dataset, vocab_size=vocab_size)
+    hyper_qa = HyperQA(dataset)
     tf.logging.info('HyperQA created')
+
     hyper_qa.train()
 
-    # question = 'what has been the status regarding creative commons since june 2012'
-    # answers = [
-    #     'stunned , killed , bled , scalded , plucked , have their heads and feet removed , eviscerated , washed , chilled , drained , weighed , and packed .',
-    #     'general secretary hu jintao , wu bangguo , wen jiabao , jia qinglin , li changchun , xi jinping , li keqiang , he guoqiang and zhou yongkang , .',
-    #     'the region between the harz mountains in the north , the weiße elster river in the east , the franconian forest in the south and the werra river in the west .',
-    #     'it has been possible to select a creative commons license as the default , allowing other users to reuse and remix the material if it is free of copyright. .',
-    #     'that from a rational point of view it was certainly as little derogatory to the merits of christ to assert that mary was by him preserved from all taint of sin .',
-    #     'hung by their feet , stunned , killed , bled , scalded , plucked , have their heads and feet removed , eviscerated , washed , chilled , drained , weighed , and packed .',
-    # ]
-    #
-    # ans = [[answers[0], 1]]
-    # for a in answers[1:]:
-    #     ans.append([a, 0])
-    #
-    # dataset.num_neg = len(answers[1:])
-    # data = dataset._create_feed_data({question: ans}, many=True)
-    #
-    # idx = np.argmax(hyper_qa.predict(data))
-    # tf.logging.info(answers[idx])
+    # test_predict()
