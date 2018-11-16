@@ -122,13 +122,13 @@ def build_parser():
     ps('--all_dropout', action='store_true',
        default=False, help='to dropout the embedding layer or not')
     ps("--qmax", dest="qmax", type=int, metavar='<int>',
-       default=4000, help="Max Length of Question (not used in rec)")
+       default=50, help="Max Length of Question (not used in rec)")
     ps("--char_max", dest="char_max", type=int, metavar='<int>',
        default=8, help="Max length of characters")
     ps("--char_min", dest="char_min", type=int, metavar='<int>',
        default=5, help="Min length of characters")
     ps("--amax", dest="amax", type=int, metavar='<int>',
-       default=4000, help="Max Length for Answer (not used in rec)")
+       default=50, help="Max Length for Answer (not used in rec)")
     ps("--smax", dest="smax", type=int, metavar='<int>',
        default=30, help="Max Length of Sentences (per review)")
     ps("--dmax", dest="dmax", type=int, metavar='<int>',

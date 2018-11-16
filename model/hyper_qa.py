@@ -90,18 +90,21 @@ class HyperQA:
     @property
     def train_set(self):
         if self._train_set is None:
+            tf.logging.info('Create train split')
             self._train_set = dataset.splits[dataset.Parts.train.name]
         return self._train_set
 
     @property
     def test_set(self):
         if self._test_set is None:
+            tf.logging.info('Create test split')
             self._test_set = dataset.splits[dataset.Parts.test.name]
         return self._test_set
 
     @property
     def dev_set(self):
         if self._dev_set is None:
+            tf.logging.info('Create dev split')
             self._dev_set = dataset.splits[dataset.Parts.dev.name]
         return self._dev_set
 
